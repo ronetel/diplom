@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/post.dart';
 import '../services/post_service.dart';
 import 'create_post_page.dart';
+import 'post_detail_page.dart';
 
 class FeedPage extends StatefulWidget {
   const FeedPage({super.key});
@@ -53,9 +54,9 @@ class _FeedPageState extends State<FeedPage> {
       _loadPosts();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
       }
     }
   }
@@ -63,42 +64,40 @@ class _FeedPageState extends State<FeedPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Лента'),
-      ),
+      appBar: AppBar(title: const Text('Лента')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('Ошибка: $_error'),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadPosts,
-                        child: const Text('Повторить'),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Ошибка: $_error'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadPosts,
+                    child: const Text('Повторить'),
                   ),
-                )
-              : _posts.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'Лента пуста.\nСтаньте первым кто поделится образом!',
-                        textAlign: TextAlign.center,
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadPosts,
-                      child: ListView.builder(
-                        itemCount: _posts.length,
-                        itemBuilder: (context, index) {
-                          final post = _posts[index];
-                          return _buildPostCard(post);
-                        },
-                      ),
-                    ),
+                ],
+              ),
+            )
+          : _posts.isEmpty
+          ? const Center(
+              child: Text(
+                'Лента пуста.\nСтаньте первым кто поделится образом!',
+                textAlign: TextAlign.center,
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _loadPosts,
+              child: ListView.builder(
+                itemCount: _posts.length,
+                itemBuilder: (context, index) {
+                  final post = _posts[index];
+                  return _buildPostCard(post);
+                },
+              ),
+            ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           await Navigator.push(
@@ -183,7 +182,8 @@ class _FeedPageState extends State<FeedPage> {
                     'Образ: ${post.outfit!.name}',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  if (post.outfit!.clothes != null && post.outfit!.clothes!.isNotEmpty)
+                  if (post.outfit!.clothes != null &&
+                      post.outfit!.clothes!.isNotEmpty)
                     SizedBox(
                       height: 80,
                       child: ListView.builder(
@@ -223,7 +223,12 @@ class _FeedPageState extends State<FeedPage> {
               IconButton(
                 icon: const Icon(Icons.comment_outlined),
                 onPressed: () {
-                  // TODO: Navigate to post detail
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PostDetailPage(postId: post.id),
+                    ),
+                  );
                 },
               ),
               Text('${post.commentsCount}'),

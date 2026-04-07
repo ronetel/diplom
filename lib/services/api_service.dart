@@ -5,8 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // WEB: localhost:8000
-  // Эмулятор Android: http://10.0.2.2:8000
-  // Физическое устройство: http://192.168.1.103:8000 (IP компьютера)
+  // http://10.0.2.2:8000
+  // http://192.168.1.103:8000
   static const String baseUrl = 'http://localhost:8000';
   static String? _token;
 
@@ -66,7 +66,9 @@ class ApiService {
 
   // GET запрос
   Future<dynamic> get(String path, {Map<String, String>? queryParams}) async {
-    final uri = Uri.parse('$baseUrl$path').replace(queryParameters: queryParams);
+    final uri = Uri.parse(
+      '$baseUrl$path',
+    ).replace(queryParameters: queryParams);
     final headers = await _getHeaders();
 
     final response = await http.get(uri, headers: headers);
@@ -131,12 +133,14 @@ class ApiService {
     }
 
     // Добавляем файл
-    request.files.add(http.MultipartFile.fromBytes(
-      fieldName,
-      bytes,
-      filename: filename,
-      contentType: MediaType('image', 'jpeg'),
-    ));
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        fieldName,
+        bytes,
+        filename: filename,
+        contentType: MediaType('image', 'jpeg'),
+      ),
+    );
 
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);

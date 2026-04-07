@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: wardrobe-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: wardrobe_db
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./wardrobe_backup.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  postgres_data:
