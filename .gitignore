@@ -59,3 +59,10 @@ app.*.map.json
 
 # ── Database dumps ────────────────────────────────────────────
 *.dump
+
+# ── Environment variables ─────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
