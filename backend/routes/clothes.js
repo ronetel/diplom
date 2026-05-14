@@ -3,9 +3,9 @@ const router = express.Router()
 const auth = require('../middleware/auth_mw')
 const pool = require('../db')
 
-// ============================================
-// Получить всю одежду (с фильтрами)
-// ============================================
+
+
+
 router.get('/', async (req, res) => {
   try {
     const { type, event, color, material, season, owner_id, page = 1, limit = 50 } = req.query
@@ -73,9 +73,9 @@ router.get('/', async (req, res) => {
   }
 })
 
-// ============================================
-// Получить одежду по ID
-// ============================================
+
+
+
 router.get('/:id', async (req, res) => {
   try {
     const result = await pool.query(
@@ -96,9 +96,9 @@ router.get('/:id', async (req, res) => {
   }
 })
 
-// ============================================
-// Получить одежду текущего пользователя
-// ============================================
+
+
+
 router.get('/user/me', auth, async (req, res) => {
   try {
     const { type, event, color, material, season, is_favorite, page = 1, limit = 50 } = req.query
@@ -161,9 +161,9 @@ router.get('/user/me', auth, async (req, res) => {
   }
 })
 
-// ============================================
-// Получить одежду по типу и событию (как в Wardrobe-Wizard)
-// ============================================
+
+
+
 router.get('/type/:type/event/:event', async (req, res) => {
   try {
     const { type, event } = req.params
@@ -196,19 +196,20 @@ router.get('/type/:type/event/:event', async (req, res) => {
   }
 })
 
-// ============================================
-// Создать новую одежду
-// ============================================
+
+
+
 router.post('/', auth, async (req, res) => {
   try {
     const {
       image_urls,
+      processed_image_url,
+      name,
+      category,
       brand_names,
       descriptions,
       type,
       event = 'casual',
-      color,
-      material,
       season,
       size
     } = req.body
@@ -217,15 +218,13 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: 'Image URL is required' })
     }
 
-    if (!type) {
-      return res.status(400).json({ message: 'Type is required' })
-    }
+    const resolvedType = type || 'top'
 
     const result = await pool.query(
-      `INSERT INTO clothes(owner_id, image_urls, brand_names, descriptions, type, event, color, material, season, size)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO clothes(owner_id, image_urls, processed_image_url, name, category, brand_names, descriptions, type, event, season, size)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
-      [req.user.id, image_urls, brand_names, descriptions, type, event, color, material, season, size]
+      [req.user.id, image_urls, processed_image_url || null, name || null, category || null, brand_names || null, descriptions || null, resolvedType, event, season || null, size || null]
     )
 
     res.status(201).json({ cloth: result.rows[0] })
@@ -235,32 +234,32 @@ router.post('/', auth, async (req, res) => {
   }
 })
 
-// ============================================
-// Обновить одежду
-// ============================================
+
+
+
 router.put('/:id', auth, async (req, res) => {
   try {
     const clothId = req.params.id
     const userId = req.user.id
 
-    // Проверяем владельца
+    
     const clothResult = await pool.query('SELECT owner_id FROM clothes WHERE id = $1', [clothId])
     if (clothResult.rows.length === 0) {
       return res.status(404).json({ message: 'Cloth not found' })
     }
 
-    // Только владелец или админ может редактировать
+    
     if (clothResult.rows[0].owner_id !== userId && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized' })
     }
 
     const {
+      name,
+      category,
       brand_names,
       descriptions,
       type,
       event,
-      color,
-      material,
       season,
       size,
       is_favorite
@@ -270,6 +269,14 @@ router.put('/:id', auth, async (req, res) => {
     const values = []
     let paramCount = 1
 
+    if (name !== undefined) {
+      updates.push(`name = $${paramCount++}`)
+      values.push(name)
+    }
+    if (category !== undefined) {
+      updates.push(`category = $${paramCount++}`)
+      values.push(category)
+    }
     if (brand_names !== undefined) {
       updates.push(`brand_names = $${paramCount++}`)
       values.push(brand_names)
@@ -285,14 +292,6 @@ router.put('/:id', auth, async (req, res) => {
     if (event !== undefined) {
       updates.push(`event = $${paramCount++}`)
       values.push(event)
-    }
-    if (color !== undefined) {
-      updates.push(`color = $${paramCount++}`)
-      values.push(color)
-    }
-    if (material !== undefined) {
-      updates.push(`material = $${paramCount++}`)
-      values.push(material)
     }
     if (season !== undefined) {
       updates.push(`season = $${paramCount++}`)
@@ -322,21 +321,21 @@ router.put('/:id', auth, async (req, res) => {
   }
 })
 
-// ============================================
-// Удалить одежду
-// ============================================
+
+
+
 router.delete('/:id', auth, async (req, res) => {
   try {
     const clothId = req.params.id
     const userId = req.user.id
 
-    // Проверяем владельца
+    
     const clothResult = await pool.query('SELECT owner_id FROM clothes WHERE id = $1', [clothId])
     if (clothResult.rows.length === 0) {
       return res.status(404).json({ message: 'Cloth not found' })
     }
 
-    // Только владелец или админ может удалять
+    
     if (clothResult.rows[0].owner_id !== userId && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized' })
     }
@@ -348,9 +347,9 @@ router.delete('/:id', auth, async (req, res) => {
   }
 })
 
-// ============================================
-// Получить статистику одежды пользователя
-// ============================================
+
+
+
 router.get('/stats/me', auth, async (req, res) => {
   try {
     const userId = req.user.id

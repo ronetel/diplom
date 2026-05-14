@@ -5,7 +5,7 @@ import 'api_service.dart';
 class ClothService {
   final ApiService _api = ApiService();
 
-  // Получить всю одежду с фильтрами
+  
   Future<PaginationData<Cloth>> getClothes({
     String? type,
     String? event,
@@ -35,13 +35,13 @@ class ClothService {
     );
   }
 
-  // Получить одежду по ID
+  
   Future<Cloth> getClothById(int id) async {
     final response = await _api.get('/clothes/$id');
     return Cloth.fromJson(response['cloth']);
   }
 
-  // Получить одежду текущего пользователя
+  
   Future<PaginationData<Cloth>> getMyClothes({
     String? type,
     String? event,
@@ -71,14 +71,59 @@ class ClothService {
     );
   }
 
-  // Получить одежду по типу и событию (как в Wardrobe-Wizard)
+  
   Future<List<Cloth>> getClothesByTypeAndEvent(String type, String event) async {
     final response = await _api.get('/clothes/type/$type/event/$event');
     final clothes = response['clothes'] as List;
     return clothes.map((e) => Cloth.fromJson(e)).toList();
   }
 
-  // Создать одежду из байтов (для image_picker)
+  
+  
+  Future<Map<String, String?>> processClothImage({
+    required List<int> imageBytes,
+    required String filename,
+  }) async {
+    final response = await _api.uploadBytes(
+      '/upload/processCloth',
+      imageBytes,
+      filename,
+    );
+    return {
+      'imageUrl': response['imageUrl'] as String?,
+      'processedImageUrl': response['processedImageUrl'] as String?,
+    };
+  }
+
+  
+  Future<Cloth> createClothFromUrls({
+    required String imageUrl,
+    String? processedImageUrl,
+    required String type,
+    String? name,
+    String? category,
+    String? brandNames,
+    String? descriptions,
+    String event = 'casual',
+    String? season,
+    String? size,
+  }) async {
+    final response = await _api.post('/clothes', body: {
+      'image_urls': imageUrl,
+      'processed_image_url': processedImageUrl,
+      'type': type,
+      'name': name,
+      'category': category,
+      'brand_names': brandNames,
+      'descriptions': descriptions,
+      'event': event,
+      'season': season,
+      'size': size,
+    });
+    return Cloth.fromJson(response['cloth']);
+  }
+
+  
   Future<Cloth> createClothFromBytes({
     required List<int> imageBytes,
     required String filename,
@@ -112,26 +157,26 @@ class ClothService {
     return Cloth.fromJson(response['cloth']);
   }
 
-  // Обновить одежду
+  
   Future<Cloth> updateCloth(
     int id, {
+    String? name,
+    String? category,
     String? brandNames,
     String? descriptions,
     String? type,
     String? event,
-    String? color,
-    String? material,
     String? season,
     String? size,
     bool? isFavorite,
   }) async {
     final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (category != null) body['category'] = category;
     if (brandNames != null) body['brand_names'] = brandNames;
     if (descriptions != null) body['descriptions'] = descriptions;
     if (type != null) body['type'] = type;
     if (event != null) body['event'] = event;
-    if (color != null) body['color'] = color;
-    if (material != null) body['material'] = material;
     if (season != null) body['season'] = season;
     if (size != null) body['size'] = size;
     if (isFavorite != null) body['is_favorite'] = isFavorite;
@@ -140,17 +185,17 @@ class ClothService {
     return Cloth.fromJson(response['cloth']);
   }
 
-  // Удалить одежду
+  
   Future<void> deleteCloth(int id) async {
     await _api.delete('/clothes/$id');
   }
 
-  // Добавить/убрать из избранного
+  
   Future<Cloth> toggleFavorite(int id, bool isFavorite) async {
     return await updateCloth(id, isFavorite: isFavorite);
   }
 
-  // Получить статистику одежды
+  
   Future<Map<String, dynamic>> getClothesStats() async {
     final response = await _api.get('/clothes/stats/me');
     return {
@@ -161,9 +206,9 @@ class ClothService {
     };
   }
 
-  // Получить уникальные значения для фильтров
+  
   Future<Map<String, List<String>>> getFilterOptions() async {
-    // Эти данные можно получить из статистики или создать статические
+    
     return {
       'types': Cloth.types,
       'events': Cloth.events,

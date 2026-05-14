@@ -3,32 +3,69 @@ const router = express.Router();
 const auth = require("../middleware/auth_mw");
 const pool = require("../db");
 
-// ============================================
-// Получить ленту постов
-// ============================================
+
+
+
 router.get("/feed", async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, feed } = req.query;
     const offset = (page - 1) * limit;
 
+    
+    let currentUserId = null;
+    const token = req.headers.authorization?.split(" ")[1];
+    if (token) {
+      try {
+        const jwt = require("jsonwebtoken");
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || "replace_this_with_secure_secret");
+        currentUserId = decoded.id;
+      } catch {}
+    }
+
+    
+    // Строим параметры отдельно для count и основного запроса
+    const countParams = []
+    const mainParams = [limit, offset]
+    let followingCondition = ''
+    let likedExpr = 'FALSE'
+
+    if (feed === 'following' && currentUserId) {
+      countParams.push(currentUserId)
+      followingCondition = `AND author_id IN (SELECT following_id FROM user_follows WHERE follower_id = $${countParams.length})`
+    }
+
     const countResult = await pool.query(
-      "SELECT COUNT(*) FROM posts WHERE is_hidden = FALSE",
-    );
-    const totalCount = parseInt(countResult.rows[0].count);
+      `SELECT COUNT(*) FROM posts WHERE is_hidden = FALSE ${followingCondition}`,
+      countParams,
+    )
+    const totalCount = parseInt(countResult.rows[0].count)
+
+    // Для основного запроса строим условие заново с правильными индексами
+    let mainFollowingCondition = ''
+    if (feed === 'following' && currentUserId) {
+      mainParams.push(currentUserId)
+      mainFollowingCondition = `AND author_id IN (SELECT following_id FROM user_follows WHERE follower_id = $${mainParams.length})`
+    }
+
+    if (currentUserId) {
+      mainParams.push(currentUserId)
+      likedExpr = `(SELECT COUNT(*) FROM likes WHERE post_id = p.id AND user_id = $${mainParams.length}) > 0`
+    }
 
     const result = await pool.query(
       `SELECT p.*, u.username, u.avatar_url,
         (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as likes_count,
-        (SELECT COUNT(*) FROM comments WHERE post_id = p.id AND is_hidden = FALSE) as comments_count
+        (SELECT COUNT(*) FROM comments WHERE post_id = p.id AND is_hidden = FALSE) as comments_count,
+        (${likedExpr}) as is_liked
        FROM posts p
        JOIN users u ON p.author_id = u.id
-       WHERE p.is_hidden = FALSE
+       WHERE p.is_hidden = FALSE ${mainFollowingCondition}
        ORDER BY p.created_at DESC
        LIMIT $1 OFFSET $2`,
-      [limit, offset],
-    );
+      mainParams,
+    )
 
-    // Загружаем outfit для каждого поста
+    
     for (const post of result.rows) {
       if (post.outfit_id) {
         const outfitResult = await pool.query(
@@ -64,9 +101,9 @@ router.get("/feed", async (req, res) => {
   }
 });
 
-// ============================================
-// Получить посты пользователя
-// ============================================
+
+
+
 router.get("/user/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -91,7 +128,7 @@ router.get("/user/:userId", async (req, res) => {
       [userId, limit, offset],
     );
 
-    // Загружаем outfit для каждого поста
+    
     for (const post of result.rows) {
       if (post.outfit_id) {
         const outfitResult = await pool.query(
@@ -126,9 +163,9 @@ router.get("/user/:userId", async (req, res) => {
   }
 });
 
-// ============================================
-// Получить пост по ID
-// ============================================
+
+
+
 router.get("/:id", async (req, res) => {
   try {
     const postId = req.params.id;
@@ -149,7 +186,7 @@ router.get("/:id", async (req, res) => {
 
     const post = result.rows[0];
 
-    // Получаем комментарии
+    
     const commentsResult = await pool.query(
       `SELECT c.*, u.username, u.avatar_url
        FROM comments c
@@ -160,7 +197,7 @@ router.get("/:id", async (req, res) => {
     );
     post.comments = commentsResult.rows;
 
-    // Получаем образ, если есть
+    
     if (post.outfit_id) {
       const outfitResult = await pool.query(
         `SELECT o.* FROM outfits o WHERE o.id = $1`,
@@ -185,15 +222,15 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// ============================================
-// Создать пост
-// ============================================
+
+
+
 router.post("/", auth, async (req, res) => {
   try {
     const { outfit_id, title, content, image_urls, tags } = req.body;
     const userId = req.user.id;
 
-    // Проверяем, что outfit принадлежит пользователю
+    
     if (outfit_id) {
       const outfitResult = await pool.query(
         "SELECT owner_id FROM outfits WHERE id = $1",
@@ -218,7 +255,7 @@ router.post("/", auth, async (req, res) => {
 
     const post = result.rows[0];
 
-    // Добавляем информацию об авторе
+    
     const userResult = await pool.query(
       "SELECT username, avatar_url FROM users WHERE id = $1",
       [userId],
@@ -235,15 +272,15 @@ router.post("/", auth, async (req, res) => {
   }
 });
 
-// ============================================
-// Обновить пост
-// ============================================
+
+
+
 router.put("/:id", auth, async (req, res) => {
   try {
     const postId = req.params.id;
     const userId = req.user.id;
 
-    // Проверяем владельца
+    
     const postResult = await pool.query(
       "SELECT author_id FROM posts WHERE id = $1",
       [postId],
@@ -252,7 +289,7 @@ router.put("/:id", auth, async (req, res) => {
       return res.status(404).json({ message: "Post not found" });
     }
 
-    // Только автор или модератор/админ может редактировать
+    
     if (
       postResult.rows[0].author_id !== userId &&
       !["moderator", "admin"].includes(req.user.role)
@@ -297,15 +334,15 @@ router.put("/:id", auth, async (req, res) => {
   }
 });
 
-// ============================================
-// Удалить пост
-// ============================================
+
+
+
 router.delete("/:id", auth, async (req, res) => {
   try {
     const postId = req.params.id;
     const userId = req.user.id;
 
-    // Проверяем владельца
+    
     const postResult = await pool.query(
       "SELECT author_id FROM posts WHERE id = $1",
       [postId],
@@ -314,7 +351,7 @@ router.delete("/:id", auth, async (req, res) => {
       return res.status(404).json({ message: "Post not found" });
     }
 
-    // Только автор или модератор/админ может удалять
+    
     if (
       postResult.rows[0].author_id !== userId &&
       !["moderator", "admin"].includes(req.user.role)
@@ -329,15 +366,15 @@ router.delete("/:id", auth, async (req, res) => {
   }
 });
 
-// ============================================
-// Лайкнуть пост
-// ============================================
+
+
+
 router.post("/:id/like", auth, async (req, res) => {
   try {
     const postId = req.params.id;
     const userId = req.user.id;
 
-    // Проверяем существование поста
+    
     const postResult = await pool.query("SELECT id FROM posts WHERE id = $1", [
       postId,
     ]);
@@ -345,13 +382,13 @@ router.post("/:id/like", auth, async (req, res) => {
       return res.status(404).json({ message: "Post not found" });
     }
 
-    // Добавляем лайк (игнорируем если уже есть)
+    
     await pool.query(
       "INSERT INTO likes(post_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
       [postId, userId],
     );
 
-    // Получаем общее количество лайков
+    
     const countResult = await pool.query(
       "SELECT COUNT(*) FROM likes WHERE post_id = $1",
       [postId],
@@ -363,9 +400,9 @@ router.post("/:id/like", auth, async (req, res) => {
   }
 });
 
-// ============================================
-// Убрать лайк
-// ============================================
+
+
+
 router.delete("/:id/like", auth, async (req, res) => {
   try {
     const postId = req.params.id;
@@ -387,9 +424,9 @@ router.delete("/:id/like", auth, async (req, res) => {
   }
 });
 
-// ============================================
-// Получить лайки поста
-// ============================================
+
+
+
 router.get("/:id/likes", async (req, res) => {
   try {
     const postId = req.params.id;
@@ -409,9 +446,9 @@ router.get("/:id/likes", async (req, res) => {
   }
 });
 
-// ============================================
-// Проверить, лайкнул ли пользователь пост
-// ============================================
+
+
+
 router.get("/:id/like/status", auth, async (req, res) => {
   try {
     const postId = req.params.id;
@@ -428,9 +465,9 @@ router.get("/:id/like/status", auth, async (req, res) => {
   }
 });
 
-// ============================================
-// Добавить комментарий
-// ============================================
+
+
+
 router.post("/:id/comments", auth, async (req, res) => {
   try {
     const postId = req.params.id;
@@ -441,7 +478,7 @@ router.post("/:id/comments", auth, async (req, res) => {
       return res.status(400).json({ message: "Content is required" });
     }
 
-    // Проверяем существование поста
+    
     const postResult = await pool.query("SELECT id FROM posts WHERE id = $1", [
       postId,
     ]);
@@ -458,7 +495,7 @@ router.post("/:id/comments", auth, async (req, res) => {
 
     const comment = result.rows[0];
 
-    // Добавляем информацию об авторе
+    
     const userResult = await pool.query(
       "SELECT username, avatar_url FROM users WHERE id = $1",
       [userId],
@@ -472,9 +509,9 @@ router.post("/:id/comments", auth, async (req, res) => {
   }
 });
 
-// ============================================
-// Получить комментарии поста
-// ============================================
+
+
+
 router.get("/:id/comments", async (req, res) => {
   try {
     const postId = req.params.id;
@@ -497,15 +534,15 @@ router.get("/:id/comments", async (req, res) => {
   }
 });
 
-// ============================================
-// Удалить комментарий
-// ============================================
+
+
+
 router.delete("/:postId/comments/:commentId", auth, async (req, res) => {
   try {
     const { postId, commentId } = req.params;
     const userId = req.user.id;
 
-    // Проверяем владельца комментария
+    
     const commentResult = await pool.query(
       "SELECT author_id FROM comments WHERE id = $1 AND post_id = $2",
       [commentId, postId],
@@ -514,7 +551,7 @@ router.delete("/:postId/comments/:commentId", auth, async (req, res) => {
       return res.status(404).json({ message: "Comment not found" });
     }
 
-    // Только автор или модератор/админ может удалять
+    
     if (
       commentResult.rows[0].author_id !== userId &&
       !["moderator", "admin"].includes(req.user.role)
@@ -529,9 +566,9 @@ router.delete("/:postId/comments/:commentId", auth, async (req, res) => {
   }
 });
 
-// ============================================
-// MODERATOR: Скрыть/показать пост
-// ============================================
+
+
+
 router.put("/:id/hide", auth, async (req, res) => {
   try {
     if (!["moderator", "admin"].includes(req.user.role)) {
@@ -556,9 +593,9 @@ router.put("/:id/hide", auth, async (req, res) => {
   }
 });
 
-// ============================================
-// MODERATOR: Получить жалобы на посты
-// ============================================
+
+
+
 router.get("/reports/list", auth, async (req, res) => {
   try {
     if (!["moderator", "admin"].includes(req.user.role)) {

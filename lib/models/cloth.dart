@@ -2,6 +2,9 @@ class Cloth {
   final int id;
   final int? ownerId;
   final String imageUrl;
+  final String? processedImageUrl; 
+  final String? name;              
+  final String? category;          
   final String? brandNames;
   final String? descriptions;
   final String type;
@@ -18,6 +21,9 @@ class Cloth {
     required this.id,
     this.ownerId,
     required this.imageUrl,
+    this.processedImageUrl,
+    this.name,
+    this.category,
     this.brandNames,
     this.descriptions,
     required this.type,
@@ -36,6 +42,9 @@ class Cloth {
       id: json['id'],
       ownerId: json['owner_id'] ?? json['ownerId'],
       imageUrl: json['image_urls'] ?? json['imageUrl'] ?? '',
+      processedImageUrl: json['processed_image_url'] ?? json['processedImageUrl'],
+      name: json['name'],
+      category: json['category'],
       brandNames: json['brand_names'] ?? json['brandNames'],
       descriptions: json['descriptions'],
       type: json['type'] ?? 'top',
@@ -70,7 +79,7 @@ class Cloth {
     };
   }
 
-  // Список типов одежды
+  
   static const List<String> types = [
     'top',
     'bottom',
@@ -89,7 +98,7 @@ class Cloth {
     'Аксессуар',
   ];
 
-  // Список событий
+  
   static const List<String> events = [
     'casual',
     'workout',
@@ -108,7 +117,7 @@ class Cloth {
     'Вечеринка',
   ];
 
-  // Список сезонов
+  
   static const List<String> seasons = [
     'spring',
     'summer',
@@ -145,6 +154,9 @@ class Cloth {
     int? id,
     int? ownerId,
     String? imageUrl,
+    String? processedImageUrl,
+    String? name,
+    String? category,
     String? brandNames,
     String? descriptions,
     String? type,
@@ -161,6 +173,9 @@ class Cloth {
       id: id ?? this.id,
       ownerId: ownerId ?? this.ownerId,
       imageUrl: imageUrl ?? this.imageUrl,
+      processedImageUrl: processedImageUrl ?? this.processedImageUrl,
+      name: name ?? this.name,
+      category: category ?? this.category,
       brandNames: brandNames ?? this.brandNames,
       descriptions: descriptions ?? this.descriptions,
       type: type ?? this.type,

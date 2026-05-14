@@ -6,15 +6,18 @@ import 'api_service.dart';
 class PostService {
   final ApiService _api = ApiService();
 
-  // Получить ленту постов
+  
   Future<PaginationData<Post>> getFeed({
     int page = 1,
     int limit = 20,
+    String? feed,
   }) async {
-    final response = await _api.get('/posts/feed', queryParams: {
+    final params = <String, String>{
       'page': page.toString(),
       'limit': limit.toString(),
-    });
+    };
+    if (feed != null) params['feed'] = feed;
+    final response = await _api.get('/posts/feed', queryParams: params);
 
     return PaginationData.fromJson(
       response,
@@ -23,7 +26,7 @@ class PostService {
     );
   }
 
-  // Получить посты пользователя
+  
   Future<PaginationData<Post>> getUserPosts(int userId, {
     int page = 1,
     int limit = 20,
@@ -40,13 +43,13 @@ class PostService {
     );
   }
 
-  // Получить пост по ID
+  
   Future<Post> getPostById(int id) async {
     final response = await _api.get('/posts/$id');
     return Post.fromJson(response['post']);
   }
 
-  // Создать пост
+  
   Future<Post> createPost({
     int? outfitId,
     String? title,
@@ -65,7 +68,7 @@ class PostService {
     return Post.fromJson(response['post']);
   }
 
-  // Обновить пост
+  
   Future<Post> updatePost(
     int id, {
     String? title,
@@ -83,12 +86,12 @@ class PostService {
     return Post.fromJson(response['post']);
   }
 
-  // Удалить пост
+  
   Future<void> deletePost(int id) async {
     await _api.delete('/posts/$id');
   }
 
-  // Лайкнуть пост
+  
   Future<Map<String, dynamic>> likePost(int id) async {
     final response = await _api.post('/posts/$id/like');
     return {
@@ -97,7 +100,7 @@ class PostService {
     };
   }
 
-  // Убрать лайк
+  
   Future<Map<String, dynamic>> unlikePost(int id) async {
     final response = await _api.delete('/posts/$id/like');
     return {
@@ -106,7 +109,7 @@ class PostService {
     };
   }
 
-  // Проверить, лайкнул ли пользователь пост
+  
   Future<bool> isLiked(int id) async {
     try {
       final response = await _api.get('/posts/$id/like/status');
@@ -116,13 +119,13 @@ class PostService {
     }
   }
 
-  // Получить лайки поста
+  
   Future<List<dynamic>> getLikes(int id) async {
     final response = await _api.get('/posts/$id/likes');
     return response['likes'];
   }
 
-  // Добавить комментарий
+  
   Future<Comment> addComment(int postId, String content) async {
     final response = await _api.post('/posts/$postId/comments', body: {
       'content': content,
@@ -131,7 +134,7 @@ class PostService {
     return Comment.fromJson(response['comment']);
   }
 
-  // Получить комментарии поста
+  
   Future<List<Comment>> getComments(int postId, {
     int page = 1,
     int limit = 50,
@@ -145,14 +148,14 @@ class PostService {
     return comments.map((e) => Comment.fromJson(e)).toList();
   }
 
-  // Удалить комментарий
+  
   Future<void> deleteComment(int postId, int commentId) async {
     await _api.delete('/posts/$postId/comments/$commentId');
   }
 
-  // ==================== MODERATOR ====================
+  
 
-  // Скрыть/показать пост (moderator/admin)
+  
   Future<Post> hidePost(int id, bool isHidden, {String? reason}) async {
     final response = await _api.put('/posts/$id/hide', body: {
       'isHidden': isHidden,
@@ -161,7 +164,7 @@ class PostService {
     return Post.fromJson(response['post']);
   }
 
-  // Получить посты с жалобами (moderator/admin)
+  
   Future<List<Post>> getReportedPosts({
     int page = 1,
     int limit = 20,

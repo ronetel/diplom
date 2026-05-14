@@ -1,16 +1,6 @@
 const pool = require('../db')
 
-/**
- * Записывает действие в лог.
- * @param {Object} opts
- * @param {string}  opts.action         - краткий код действия (LOGIN, BAN_USER, DELETE_POST, …)
- * @param {number}  opts.actorId        - id того, кто совершил действие
- * @param {string}  opts.actorUsername  - username того, кто совершил действие
- * @param {string}  [opts.targetType]   - тип объекта (user, post, comment)
- * @param {number}  [opts.targetId]     - id объекта
- * @param {string}  [opts.targetName]   - читаемое имя объекта
- * @param {string}  [opts.details]      - подробности в свободном виде
- */
+
 async function logAction({ action, actorId, actorUsername, targetType, targetId, targetName, details }) {
   try {
     await pool.query(

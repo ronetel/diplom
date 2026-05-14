@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import 'home_screen.dart';
+import 'verify_email_page.dart';
+import 'terms_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -18,6 +19,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _agreedToTerms = false;
 
   @override
   void dispose() {
@@ -30,18 +32,25 @@ class _RegisterPageState extends State<RegisterPage> {
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_agreedToTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Необходимо принять пользовательское соглашение'),
+        ),
+      );
+      return;
+    }
 
     final authProvider = context.read<AuthProvider>();
-    final success = await authProvider.register(
+    final email = await authProvider.register(
       _emailController.text.trim(),
       _usernameController.text.trim(),
       _passwordController.text,
     );
 
-    if (success && mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-        (route) => false,
+    if (email != null && mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => VerifyEmailPage(email: email)),
       );
     }
   }
@@ -64,7 +73,6 @@ class _RegisterPageState extends State<RegisterPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Error message
                   if (authProvider.error != null) ...[
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -81,14 +89,12 @@ class _RegisterPageState extends State<RegisterPage> {
                     const SizedBox(height: 16),
                   ],
 
-                  // Email field
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
                     decoration: InputDecoration(
                       labelText: 'Email',
-                      hintText: 'your@email.com',
                       prefixIcon: const Icon(Icons.email_outlined),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -106,13 +112,12 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Username field
                   TextFormField(
                     controller: _usernameController,
                     textInputAction: TextInputAction.next,
                     decoration: InputDecoration(
                       labelText: 'Имя пользователя',
-                      hintText: 'username',
+                      hintText: 'ivan_petrov',
                       prefixIcon: const Icon(Icons.person_outline),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -137,7 +142,6 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Password field
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
@@ -173,7 +177,6 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Confirm password field
                   TextFormField(
                     controller: _confirmPasswordController,
                     obscureText: _obscureConfirmPassword,
@@ -208,9 +211,52 @@ class _RegisterPageState extends State<RegisterPage> {
                     },
                     onFieldSubmitted: (_) => _register(),
                   ),
+                  const SizedBox(height: 20),
+
+                  // ToS checkbox
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Checkbox(
+                        value: _agreedToTerms,
+                        onChanged: (v) =>
+                            setState(() => _agreedToTerms = v ?? false),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(
+                              () => _agreedToTerms = !_agreedToTerms),
+                          child: RichText(
+                            text: TextSpan(
+                              style: Theme.of(context).textTheme.bodyMedium,
+                              children: [
+                                const TextSpan(text: 'Я принимаю '),
+                                WidgetSpan(
+                                  child: GestureDetector(
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                          builder: (_) => const TermsPage()),
+                                    ),
+                                    child: Text(
+                                      'пользовательское соглашение',
+                                      style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 24),
 
-                  // Register button
                   ElevatedButton(
                     onPressed: authProvider.isLoading ? null : _register,
                     style: ElevatedButton.styleFrom(

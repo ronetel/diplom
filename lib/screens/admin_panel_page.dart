@@ -33,7 +33,7 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
       });
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = e.toString().replaceFirst('Exception: ', '');
         _isLoading = false;
       });
     }
@@ -270,6 +270,7 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                           ],
                         ),
                         trailing: PopupMenuButton<String>(
+                          tooltip: 'Действия',
                           onSelected: (value) {
                             switch (value) {
                               case 'role':

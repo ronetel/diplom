@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import 'closet_page.dart';
 import 'outfits_page.dart';
 import 'feed_page.dart';
+
 import 'recommend_page.dart';
 import 'moderation_page.dart';
 import 'profile_page.dart';
@@ -54,7 +55,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return _buildUserLayout();
   }
 
-  // ─── Пользователь ────────────────────────────────────────────────────────
+  
+  
   Widget _buildUserLayout() {
     final pages = const [
       RecommendPage(),
@@ -93,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ─── Модератор / Администратор ───────────────────────────────────────────
+  
   Widget _buildModeratorLayout() => _buildStaffLayout();
   Widget _buildAdminLayout() => _buildStaffLayout();
 

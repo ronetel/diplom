@@ -7,9 +7,27 @@ require('dotenv').config()
 
 const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY
 
-// ============================================
-// Получить текущую погоду по координатам
-// ============================================
+// OpenWeather condition → internal tag mapping
+const OW_CONDITION_MAP = {
+  Clear: 'sunny',
+  Clouds: 'cloudy',
+  Rain: 'rainy',
+  Drizzle: 'rainy',
+  Thunderstorm: 'rainy',
+  Snow: 'snowy',
+  Mist: 'cloudy',
+  Fog: 'cloudy',
+  Haze: 'cloudy',
+  Dust: 'cloudy',
+  Sand: 'cloudy',
+  Ash: 'cloudy',
+  Squall: 'windy',
+  Tornado: 'windy',
+}
+
+
+
+
 router.get('/current', async (req, res) => {
   try {
     const { lat, lon } = req.query
@@ -18,7 +36,6 @@ router.get('/current', async (req, res) => {
       return res.status(400).json({ message: 'Latitude and longitude required' })
     }
 
-    // Проверяем кэш (кэшируем на 10 минут)
     const cacheResult = await pool.query(
       `SELECT * FROM weather_cache
        WHERE ABS(lat - $1) < 0.01 AND ABS(lng - $2) < 0.01
@@ -30,18 +47,14 @@ router.get('/current', async (req, res) => {
       return res.json({ weather: cacheResult.rows[0].data })
     }
 
-    // Запрашиваем у OpenWeatherMap
     const response = await axios.get(
       `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}&units=metric`
     )
 
     const weatherData = response.data
 
-    // Сохраняем в кэш
     await pool.query(
-      `INSERT INTO weather_cache(lat, lng, data)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, fetched_at = CURRENT_TIMESTAMP`,
+      `INSERT INTO weather_cache(lat, lng, data) VALUES ($1, $2, $3)`,
       [lat, lon, JSON.stringify(weatherData)]
     )
 
@@ -52,9 +65,9 @@ router.get('/current', async (req, res) => {
   }
 })
 
-// ============================================
-// Получить погоду по названию города
-// ============================================
+
+
+
 router.get('/city/:city', async (req, res) => {
   try {
     const city = req.params.city
@@ -77,9 +90,9 @@ router.get('/city/:city', async (req, res) => {
   }
 })
 
-// ============================================
-// Получить прогноз на 5 дней
-// ============================================
+
+
+
 router.get('/forecast', async (req, res) => {
   try {
     const { lat, lon } = req.query
@@ -103,76 +116,101 @@ router.get('/forecast', async (req, res) => {
   }
 })
 
-// ============================================
-// Получить рекомендацию образа на основе погоды
-// ============================================
+
+
+
 router.get('/recommend', auth, async (req, res) => {
   try {
-    const { lat, lon, event = 'casual' } = req.query
+    const { lat, lon } = req.query
     const userId = req.user.id
 
+    // Получаем погоду
     let weatherData = null
-    let temp = 20 // Температура по умолчанию
+    let temp = 20
+    let weatherCondition = 'Clear'
 
-    if (lat && lon) {
+    if (lat && lon && OPENWEATHER_API_KEY) {
       try {
         const weatherResponse = await axios.get(
           `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}&units=metric`
         )
         weatherData = weatherResponse.data
         temp = weatherData.main.temp
+        weatherCondition = weatherData.weather?.[0]?.main || 'Clear'
       } catch (err) {
         console.error('Weather fetch error:', err.message)
       }
     }
 
-    // Определяем рекомендации на основе температуры
-    const recommendations = {
-      temp: temp,
-      season: getSeasonFromTemp(temp),
-      suggestions: getClothingSuggestions(temp),
-      event: event
-    }
+    const conditionTag = OW_CONDITION_MAP[weatherCondition] || 'sunny'
+    const windSpeed = weatherData?.wind?.speed || 0
+    const isWindy = windSpeed > 10
 
-    // Пытаемся найти подходящую одежду пользователя
-    const clothesResult = await pool.query(
-      `SELECT * FROM clothes
-       WHERE owner_id = $1 AND event = $2
-       ORDER BY RANDOM()
-       LIMIT 20`,
-      [userId, event]
+    // 1. Образы с ai_tags — фильтрация по температуре + погодным условиям
+    const aiResult = await pool.query(
+      `SELECT o.*,
+        CASE
+          WHEN (o.ai_tags->'weather_suitable')::jsonb ? $3 THEN 2
+          ELSE 1
+        END as relevance_score
+       FROM outfits o
+       WHERE o.owner_id = $1
+         AND o.ai_tags IS NOT NULL
+         AND (o.ai_tags->>'temp_min')::numeric <= $2
+         AND (o.ai_tags->>'temp_max')::numeric >= $2
+       ORDER BY relevance_score DESC, o.is_favorite DESC, o.created_at DESC
+       LIMIT 10`,
+      [userId, temp, conditionTag]
     )
 
-    // Разделяем одежду по типам
-    const clothes = {
-      tops: clothesResult.rows.filter(c => c.type === 'top'),
-      bottoms: clothesResult.rows.filter(c => c.type === 'bottom'),
-      shoes: clothesResult.rows.filter(c => c.type === 'shoes'),
-      outerwear: clothesResult.rows.filter(c => c.type === 'outerwear'),
-      accessories: clothesResult.rows.filter(c => c.type === 'accessory')
+    // 2. Fallback — образы без ai_tags, по сезону/event
+    let fallbackOutfits = []
+    if (aiResult.rows.length < 3) {
+      const season = getSeasonFromTemp(temp)
+      const fallbackResult = await pool.query(
+        `SELECT o.* FROM outfits o
+         WHERE o.owner_id = $1
+           AND o.ai_tags IS NULL
+           AND (o.season = $2 OR o.season = 'all-season' OR o.season IS NULL)
+         ORDER BY o.is_favorite DESC, o.created_at DESC
+         LIMIT $3`,
+        [userId, season, 10 - aiResult.rows.length]
+      )
+      fallbackOutfits = fallbackResult.rows
     }
 
-    // Формируем рекомендованный образ
-    const recommendedOutfit = []
-    if (clothes.tops.length > 0) {
-      recommendedOutfit.push(clothes.tops[0])
-    }
-    if (clothes.bottoms.length > 0) {
-      recommendedOutfit.push(clothes.bottoms[0])
-    }
-    if (clothes.shoes.length > 0) {
-      recommendedOutfit.push(clothes.shoes[0])
-    }
-    // Добавляем верхнюю одежду если холодно
-    if (temp < 15 && clothes.outerwear.length > 0) {
-      recommendedOutfit.push(clothes.outerwear[0])
-    }
+    const allOutfits = [...aiResult.rows, ...fallbackOutfits]
+
+    // Загружаем clothes для каждого образа
+    const outfitsWithClothes = await Promise.all(
+      allOutfits.map(async (outfit) => {
+        if (outfit.clothes_ids && outfit.clothes_ids.length > 0) {
+          const clothesResult = await pool.query(
+            'SELECT * FROM clothes WHERE id = ANY($1)',
+            [outfit.clothes_ids]
+          )
+          return { ...outfit, clothes: clothesResult.rows }
+        }
+        return { ...outfit, clothes: [] }
+      })
+    )
+
+    const totalUnanalyzed = await pool.query(
+      'SELECT COUNT(*) FROM outfits WHERE owner_id = $1 AND ai_tags IS NULL AND thumbnail_url IS NOT NULL',
+      [userId]
+    )
 
     res.json({
       weather: weatherData,
-      recommendations,
-      availableClothes: clothes,
-      recommendedOutfit
+      temp,
+      condition: conditionTag,
+      recommendations: {
+        temp,
+        season: getSeasonFromTemp(temp),
+        suggestions: getClothingSuggestions(temp, conditionTag, isWindy),
+      },
+      outfits: outfitsWithClothes,
+      unanalyzed_count: parseInt(totalUnanalyzed.rows[0].count),
     })
   } catch (err) {
     console.error('Weather recommend error:', err)
@@ -180,9 +218,50 @@ router.get('/recommend', auth, async (req, res) => {
   }
 })
 
-// ============================================
-// Вспомогательные функции
-// ============================================
+
+
+
+router.post('/analyze-all', auth, async (req, res) => {
+  const { analyzeOutfitImage } = require('../services/gemini_service')
+  const userId = req.user.id
+
+  try {
+    const result = await pool.query(
+      `SELECT id, thumbnail_url, event, season, description
+       FROM outfits
+       WHERE owner_id = $1 AND ai_tags IS NULL AND thumbnail_url IS NOT NULL
+       LIMIT 20`,
+      [userId]
+    )
+
+    res.json({ queued: result.rows.length, message: 'Analysis started in background' })
+
+    // Асинхронно анализируем все образы с задержкой 2с между запросами
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+    for (const outfit of result.rows) {
+      try {
+        const tags = await analyzeOutfitImage(outfit.thumbnail_url, {
+          event: outfit.event,
+          season: outfit.season,
+          description: outfit.description,
+        })
+        if (tags) {
+          await pool.query('UPDATE outfits SET ai_tags = $1 WHERE id = $2', [JSON.stringify(tags), outfit.id])
+          console.log(`Analyzed outfit ${outfit.id}: ${tags.source || 'gemini'}`)
+        }
+        await delay(2000)
+      } catch (err) {
+        console.error(`Failed to analyze outfit ${outfit.id}:`, err.message)
+      }
+    }
+  } catch (err) {
+    console.error('Analyze-all error:', err)
+  }
+})
+
+
+
+
 function getSeasonFromTemp(temp) {
   if (temp < 5) return 'winter'
   if (temp < 15) return 'autumn'
@@ -190,30 +269,34 @@ function getSeasonFromTemp(temp) {
   return 'summer'
 }
 
-function getClothingSuggestions(temp) {
+function getClothingSuggestions(temp, condition, isWindy) {
   const suggestions = []
 
   if (temp < 0) {
-    suggestions.push('Очень холодно! Нужна теплая зимняя куртка')
+    suggestions.push('Очень холодно! Нужна тёплая зимняя куртка')
     suggestions.push('Шапка и шарф обязательны')
-    suggestions.push('Теплая обувь')
+    suggestions.push('Термобельё и тёплая обувь')
   } else if (temp < 10) {
     suggestions.push('Прохладно, возьмите куртку или пальто')
-    suggestions.push('Легкий свитер или худи')
+    suggestions.push('Свитер или тёплый лонгслив')
     suggestions.push('Закрытая обувь')
   } else if (temp < 20) {
     suggestions.push('Умеренная температура')
     suggestions.push('Лонгслив или футболка с кардиганом')
     suggestions.push('Джинсы или брюки')
   } else if (temp < 30) {
-    suggestions.push('Тепло! Легкая одежда')
-    suggestions.push('Футболка или майка')
-    suggestions.push('Шорты или легкие брюки')
+    suggestions.push('Тепло! Лёгкая одежда')
+    suggestions.push('Футболка или рубашка')
+    suggestions.push('Шорты или лёгкие брюки')
   } else {
-    suggestions.push('Жарко! Максимально легкая одежда')
-    suggestions.push('Светлые ткани')
+    suggestions.push('Жарко! Максимально лёгкая одежда')
+    suggestions.push('Светлые ткани, натуральные материалы')
     suggestions.push('Головной убор от солнца')
   }
+
+  if (condition === 'rainy') suggestions.push('Возьмите зонт или дождевик')
+  if (condition === 'snowy') suggestions.push('Водонепроницаемая обувь обязательна')
+  if (isWindy) suggestions.push('Ветрено — надевайте ветровку или плотную куртку')
 
   return suggestions
 }

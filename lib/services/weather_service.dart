@@ -1,22 +1,24 @@
 import 'package:geolocator/geolocator.dart';
+import '../models/outfit.dart';
 import '../models/weather.dart';
 import 'api_service.dart';
+// ignore_for_file: avoid_print
 
 class WeatherService {
   final ApiService _api = ApiService();
 
-  // Получить текущую позицию пользователя
+  
   Future<Position?> getCurrentPosition() async {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Проверяем включена ли геолокация
+    
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       return null;
     }
 
-    // Проверяем разрешения
+    
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -29,11 +31,11 @@ class WeatherService {
       return null;
     }
 
-    // Получаем позицию
+    
     return await Geolocator.getCurrentPosition();
   }
 
-  // Получить погоду по координатам
+  
   Future<Weather?> getWeatherByLocation(double lat, double lon) async {
     try {
       final response = await _api.get('/weather/current', queryParams: {
@@ -52,7 +54,7 @@ class WeatherService {
     }
   }
 
-  // Получить текущую погоду
+  
   Future<Weather?> getCurrentWeather() async {
     final position = await getCurrentPosition();
     if (position == null) return null;
@@ -60,7 +62,7 @@ class WeatherService {
     return await getWeatherByLocation(position.latitude, position.longitude);
   }
 
-  // Получить погоду по названию города
+  
   Future<Weather?> getWeatherByCity(String city) async {
     try {
       final response = await _api.get('/weather/city/$city');
@@ -76,7 +78,7 @@ class WeatherService {
     }
   }
 
-  // Получить прогноз на 5 дней
+  
   Future<Map<String, dynamic>?> getForecast(double lat, double lon) async {
     try {
       final response = await _api.get('/weather/forecast', queryParams: {
@@ -91,7 +93,7 @@ class WeatherService {
     }
   }
 
-  // Получить рекомендации образа на основе погоды
+  
   Future<Map<String, dynamic>?> getWeatherRecommendation({
     double? lat,
     double? lon,
@@ -126,13 +128,12 @@ class WeatherService {
     }
   }
 
-  // Получить рекомендации с автоматическим определением локации
+  
   Future<Map<String, dynamic>?> getRecommendationWithLocation({
     String event = 'casual',
   }) async {
     final position = await getCurrentPosition();
     if (position == null) {
-      // Если нет геолокации, получаем без координат
       return await getWeatherRecommendation(event: event);
     }
 
@@ -141,5 +142,40 @@ class WeatherService {
       lon: position.longitude,
       event: event,
     );
+  }
+
+  /// Основной метод для страницы погоды — возвращает образы с ai_tags
+  Future<Map<String, dynamic>?> getWeatherRecommendations() async {
+    try {
+      final position = await getCurrentPosition();
+
+      final queryParams = <String, String>{};
+      if (position != null) {
+        queryParams['lat'] = position.latitude.toString();
+        queryParams['lon'] = position.longitude.toString();
+      }
+
+      final response = await _api.get('/weather/recommend', queryParams: queryParams);
+      if (response == null) return null;
+
+      return {
+        'weather': response['weather'] != null
+            ? Weather.fromJson(response['weather'])
+            : null,
+        'suggestions': response['recommendations'] != null
+            ? List<String>.from(
+                (response['recommendations']['suggestions'] as List? ?? []))
+            : <String>[],
+        'outfits': response['outfits'] != null
+            ? (response['outfits'] as List)
+                .map((e) => Outfit.fromJson(e as Map<String, dynamic>))
+                .toList()
+            : <Outfit>[],
+        'unanalyzed_count': response['unanalyzed_count'] as int? ?? 0,
+      };
+    } catch (e) {
+      print('Error getting weather recommendations: $e');
+      return null;
+    }
   }
 }

@@ -137,7 +137,7 @@ class LogEntry {
 class AdminService {
   final ApiService _api = ApiService();
 
-  // ── POSTS ─────────────────────────────────────────────────
+  
 
   Future<({List<AdminPost> posts, int total})> getPosts({
     int page = 1, int limit = 30, String search = '',
@@ -167,7 +167,7 @@ class AdminService {
     await _api.delete('/admin/posts/$postId');
   }
 
-  // ── COMMENTS ──────────────────────────────────────────────
+  
 
   Future<({List<AdminComment> comments, int total})> getComments({
     int page = 1, int limit = 30, String search = '',
@@ -194,7 +194,7 @@ class AdminService {
     await _api.delete('/admin/comments/$commentId');
   }
 
-  // ── USERS ─────────────────────────────────────────────────
+  
 
   Future<({List<User> users, int total})> getUsers({
     int page = 1, int limit = 30, String search = '', String? role,
@@ -231,7 +231,7 @@ class AdminService {
     await _api.delete('/admin/users/$userId');
   }
 
-  // ── LOGS ──────────────────────────────────────────────────
+  
 
   Future<({List<LogEntry> logs, List<String> actionTypes, int total})> getLogs({
     int page = 1, int limit = 50,

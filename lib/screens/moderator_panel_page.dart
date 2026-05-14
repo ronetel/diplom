@@ -16,13 +16,13 @@ class ModeratorPanelPage extends StatefulWidget {
 class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
   int _selectedTab = 0;
 
-  // Posts tab state
+  
   final _postService = PostService();
   List<Post> _posts = [];
   bool _postsLoading = true;
   String? _postsError;
 
-  // Users tab state
+  
   final _authService = AuthService();
   List<User> _users = [];
   bool _usersLoading = true;

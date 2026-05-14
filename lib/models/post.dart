@@ -15,14 +15,14 @@ class Post {
   final String? reportReason;
   final DateTime createdAt;
   final DateTime? updatedAt;
-  // Автор
+  
   final String? authorUsername;
   final String? authorAvatarUrl;
-  // Статистика
+  
   final int likesCount;
   final int commentsCount;
   final bool? isLiked;
-  // Комментарии
+  
   final List<Comment>? comments;
 
   Post({

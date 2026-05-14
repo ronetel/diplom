@@ -2,10 +2,23 @@ const express = require('express')
 const router = express.Router()
 const auth = require('../middleware/auth_mw')
 const pool = require('../db')
+const { analyzeOutfitImage } = require('../services/gemini_service')
 
-// ============================================
-// Получить все образы пользователя
-// ============================================
+async function triggerAnalysis(outfitId, thumbnailUrl, meta = {}) {
+  if (!thumbnailUrl) return
+  try {
+    const tags = await analyzeOutfitImage(thumbnailUrl, meta)
+    if (tags) {
+      await pool.query('UPDATE outfits SET ai_tags = $1 WHERE id = $2', [JSON.stringify(tags), outfitId])
+    }
+  } catch (err) {
+    console.error(`AI analysis failed for outfit ${outfitId}:`, err.message)
+  }
+}
+
+
+
+
 router.get('/', auth, async (req, res) => {
   try {
     const { event, season, is_favorite, page = 1, limit = 20 } = req.query
@@ -43,7 +56,7 @@ router.get('/', auth, async (req, res) => {
       params
     )
 
-    // Добавляем информацию об одежде в каждый образ
+    
     const outfitsWithClothes = await Promise.all(
       result.rows.map(async (outfit) => {
         if (outfit.clothes_ids && outfit.clothes_ids.length > 0) {
@@ -72,9 +85,9 @@ router.get('/', auth, async (req, res) => {
   }
 })
 
-// ============================================
-// Получить образ по ID
-// ============================================
+
+
+
 router.get('/:id', auth, async (req, res) => {
   try {
     const outfitId = req.params.id
@@ -94,12 +107,12 @@ router.get('/:id', auth, async (req, res) => {
 
     const outfit = result.rows[0]
 
-    // Проверяем права доступа
+    
     if (outfit.owner_id !== userId && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized' })
     }
 
-    // Получаем одежду
+    
     if (outfit.clothes_ids && outfit.clothes_ids.length > 0) {
       const clothesResult = await pool.query(
         'SELECT * FROM clothes WHERE id = ANY($1)',
@@ -116,19 +129,19 @@ router.get('/:id', auth, async (req, res) => {
   }
 })
 
-// ============================================
-// Создать новый образ
-// ============================================
+
+
+
 router.post('/', auth, async (req, res) => {
   try {
-    const { name, description, event = 'casual', season, clothes_ids, thumbnail_url } = req.body
+    const { name, description, event = 'casual', season, clothes_ids, thumbnail_url, temp_min, temp_max, where_to_wear } = req.body
     const userId = req.user.id
 
     if (!name) {
       return res.status(400).json({ message: 'Name is required' })
     }
 
-    // Проверяем, что все ID одежды принадлежат пользователю
+    
     if (clothes_ids && clothes_ids.length > 0) {
       const clothesResult = await pool.query(
         'SELECT id FROM clothes WHERE id = ANY($1) AND owner_id = $2',
@@ -140,15 +153,15 @@ router.post('/', auth, async (req, res) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO outfits(owner_id, name, description, event, season, clothes_ids, thumbnail_url)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO outfits(owner_id, name, description, event, season, clothes_ids, thumbnail_url, temp_min, temp_max, where_to_wear)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
-      [userId, name, description, event, season, clothes_ids || [], thumbnail_url]
+      [userId, name, description, event, season, clothes_ids || [], thumbnail_url, temp_min ?? null, temp_max ?? null, where_to_wear || []]
     )
 
     const outfit = result.rows[0]
 
-    // Получаем одежду
+    
     if (clothes_ids && clothes_ids.length > 0) {
       const clothesResult = await pool.query(
         'SELECT * FROM clothes WHERE id = ANY($1)',
@@ -160,21 +173,24 @@ router.post('/', auth, async (req, res) => {
     }
 
     res.status(201).json({ outfit })
+
+    // async AI analysis — не блокирует ответ
+    triggerAnalysis(outfit.id, thumbnail_url, { event, season, description })
   } catch (err) {
     console.error('Create outfit error:', err)
     res.status(500).json({ message: 'Internal server error' })
   }
 })
 
-// ============================================
-// Обновить образ
-// ============================================
+
+
+
 router.put('/:id', auth, async (req, res) => {
   try {
     const outfitId = req.params.id
     const userId = req.user.id
 
-    // Проверяем владельца
+    
     const outfitResult = await pool.query('SELECT owner_id FROM outfits WHERE id = $1', [outfitId])
     if (outfitResult.rows.length === 0) {
       return res.status(404).json({ message: 'Outfit not found' })
@@ -184,9 +200,9 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' })
     }
 
-    const { name, description, event, season, clothes_ids, thumbnail_url, is_favorite } = req.body
+    const { name, description, event, season, clothes_ids, thumbnail_url, is_favorite, temp_min, temp_max, where_to_wear } = req.body
 
-    // Проверяем, что все ID одежды принадлежат пользователю
+    
     if (clothes_ids && clothes_ids.length > 0) {
       const clothesResult = await pool.query(
         'SELECT id FROM clothes WHERE id = ANY($1) AND owner_id = $2',
@@ -229,6 +245,18 @@ router.put('/:id', auth, async (req, res) => {
       updates.push(`is_favorite = $${paramCount++}`)
       values.push(is_favorite)
     }
+    if (temp_min !== undefined) {
+      updates.push(`temp_min = $${paramCount++}`)
+      values.push(temp_min)
+    }
+    if (temp_max !== undefined) {
+      updates.push(`temp_max = $${paramCount++}`)
+      values.push(temp_max)
+    }
+    if (where_to_wear !== undefined) {
+      updates.push(`where_to_wear = $${paramCount++}`)
+      values.push(where_to_wear)
+    }
 
     if (updates.length === 0) {
       return res.status(400).json({ message: 'No fields to update' })
@@ -240,7 +268,7 @@ router.put('/:id', auth, async (req, res) => {
     const result = await pool.query(query, values)
     const outfit = result.rows[0]
 
-    // Получаем одежду
+    
     if (outfit.clothes_ids && outfit.clothes_ids.length > 0) {
       const clothesResult = await pool.query(
         'SELECT * FROM clothes WHERE id = ANY($1)',
@@ -252,15 +280,66 @@ router.put('/:id', auth, async (req, res) => {
     }
 
     res.json({ outfit })
+
+    // повторный анализ если thumbnail изменился
+    if (thumbnail_url) {
+      triggerAnalysis(outfit.id, thumbnail_url, {
+        event: outfit.event,
+        season: outfit.season,
+        description: outfit.description,
+      })
+    }
   } catch (err) {
     console.error('Update outfit error:', err)
     res.status(500).json({ message: 'Internal server error' })
   }
 })
 
-// ============================================
-// Удалить образ
-// ============================================
+
+
+
+router.post('/:id/analyze', auth, async (req, res) => {
+  try {
+    const outfitId = req.params.id
+    const userId = req.user.id
+
+    const result = await pool.query(
+      'SELECT * FROM outfits WHERE id = $1 AND owner_id = $2',
+      [outfitId, userId]
+    )
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Outfit not found' })
+    }
+
+    const outfit = result.rows[0]
+
+    if (!outfit.thumbnail_url) {
+      return res.status(400).json({ message: 'Outfit has no thumbnail image' })
+    }
+
+    const tags = await analyzeOutfitImage(outfit.thumbnail_url, {
+      event: outfit.event,
+      season: outfit.season,
+      description: outfit.description,
+    })
+
+    if (!tags) {
+      return res.status(500).json({ message: 'AI analysis failed' })
+    }
+
+    await pool.query('UPDATE outfits SET ai_tags = $1 WHERE id = $2', [JSON.stringify(tags), outfitId])
+
+    res.json({ ai_tags: tags })
+  } catch (err) {
+    console.error('Analyze outfit error:', err)
+    res.status(500).json({ message: 'Internal server error' })
+  }
+})
+
+
+
+
 router.delete('/:id', auth, async (req, res) => {
   try {
     const outfitId = req.params.id
@@ -282,15 +361,15 @@ router.delete('/:id', auth, async (req, res) => {
   }
 })
 
-// ============================================
-// Генерация образа на основе погоды (автоматически)
-// ============================================
+
+
+
 router.post('/generate', auth, async (req, res) => {
   try {
     const { event = 'casual', temp, date } = req.body
     const userId = req.user.id
 
-    // Определяем сезон на основе температуры
+    
     let season = 'all-season'
     if (temp !== undefined) {
       if (temp < 5) season = 'winter'
@@ -299,7 +378,7 @@ router.post('/generate', auth, async (req, res) => {
       else season = 'summer'
     }
 
-    // Получаем доступную одежду пользователя
+    
     const topResult = await pool.query(
       `SELECT id FROM clothes
        WHERE owner_id = $1 AND type = 'top' AND event = $2
@@ -330,9 +409,9 @@ router.post('/generate', auth, async (req, res) => {
       return res.status(404).json({ message: 'No clothes available for this event' })
     }
 
-    // Сохраняем в расписание, если указана дата
+    
     if (date) {
-      // Удаляем старую запись на эту дату, если есть
+      
       await pool.query(
         'DELETE FROM outfit_schedule WHERE owner_id = $1 AND scheduled_date = $2',
         [userId, date]
@@ -352,12 +431,12 @@ router.post('/generate', auth, async (req, res) => {
   }
 })
 
-// ============================================
-// Получить образы на дату
-// ============================================
+
+
+
 router.get('/date/:date', auth, async (req, res) => {
   try {
-    const date = req.params.date // YYYYMMDD
+    const date = req.params.date 
     const userId = req.user.id
 
     const year = date.slice(0, 4)

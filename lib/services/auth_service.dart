@@ -7,20 +7,44 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AuthService {
   final ApiService _api = ApiService();
 
-  // Регистрация
-  Future<AuthResponse> register(String email, String username, String password) async {
+  
+  // Возвращает email — пользователь должен подтвердить код
+  Future<String> register(String email, String username, String password) async {
     final response = await _api.post('/auth/register', body: {
       'email': email,
       'username': username,
       'password': password,
     });
+    return response['email'] as String;
+  }
 
+  Future<AuthResponse> verifyEmail(String email, String code) async {
+    final response = await _api.post('/auth/verify-email', body: {
+      'email': email,
+      'code': code,
+    });
     final authResponse = AuthResponse.fromJson(response);
     await _saveAuthData(authResponse);
     return authResponse;
   }
 
-  // Вход
+  Future<void> resendVerification(String email) async {
+    await _api.post('/auth/resend-verification', body: {'email': email});
+  }
+
+  Future<void> forgotPassword(String email) async {
+    await _api.post('/auth/forgot-password', body: {'email': email});
+  }
+
+  Future<void> resetPassword(String email, String code, String newPassword) async {
+    await _api.post('/auth/reset-password', body: {
+      'email': email,
+      'code': code,
+      'newPassword': newPassword,
+    });
+  }
+
+  
   Future<AuthResponse> login(String email, String password) async {
     final response = await _api.post('/auth/login', body: {
       'email': email,
@@ -32,7 +56,7 @@ class AuthService {
     return authResponse;
   }
 
-  // Сохранить данные авторизации
+  
   Future<void> _saveAuthData(AuthResponse authResponse) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('jwt_token', authResponse.token);
@@ -43,7 +67,7 @@ class AuthService {
     ApiService.setToken(authResponse.token);
   }
 
-  // Получить текущего пользователя
+  
   Future<User?> getCurrentUser() async {
     try {
       final response = await _api.get('/auth/me');
@@ -53,7 +77,7 @@ class AuthService {
     }
   }
 
-  // Обновить профиль
+  
   Future<User> updateProfile({String? username, String? avatarUrl}) async {
     final body = <String, String>{};
     if (username != null) body['username'] = username;
@@ -63,7 +87,7 @@ class AuthService {
     return User.fromJson(response['user']);
   }
 
-  // Загрузить аватар
+  
   Future<String> uploadAvatar(List<int> bytes, String filename) async {
     final response = await _api.uploadBytes(
       '/upload/uploadAvatar',
@@ -73,20 +97,28 @@ class AuthService {
     return response['user']['avatar_url'] as String;
   }
 
-  // Сменить пароль
-  Future<void> changePassword(String currentPassword, String newPassword) async {
+  
+  Future<String> requestPasswordChangeCode(String currentPassword) async {
+    final response = await _api.post('/auth/password-change-code', body: {
+      'currentPassword': currentPassword,
+    });
+    return response['email'] as String;
+  }
+
+  Future<void> changePassword(String currentPassword, String newPassword, String code) async {
     await _api.put('/auth/password', body: {
       'currentPassword': currentPassword,
       'newPassword': newPassword,
+      'code': code,
     });
   }
 
-  // Выход
+  
   Future<void> logout() async {
     await _api.clearToken();
   }
 
-  // Проверить, авторизован ли пользователь
+  
   Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token');
@@ -97,7 +129,7 @@ class AuthService {
     return false;
   }
 
-  // Получить сохраненного пользователя
+  
   Future<Map<String, dynamic>?> getSavedUser() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token');
@@ -112,9 +144,9 @@ class AuthService {
     };
   }
 
-  // ==================== ADMIN/MODERATOR ====================
+  
 
-  // Получить всех пользователей (только для admin/moderator)
+  
   Future<PaginationData<User>> getAllUsers({
     int page = 1,
     int limit = 20,
@@ -136,13 +168,13 @@ class AuthService {
     );
   }
 
-  // Получить пользователя по ID
+  
   Future<User> getUserById(int userId) async {
     final response = await _api.get('/auth/users/$userId');
     return User.fromJson(response['user']);
   }
 
-  // Изменить роль пользователя (только admin)
+  
   Future<User> updateUserRole(int userId, String role) async {
     final response = await _api.put('/auth/users/$userId/role', body: {
       'role': role,
@@ -150,7 +182,7 @@ class AuthService {
     return User.fromJson(response['user']);
   }
 
-  // Заблокировать пользователя
+  
   Future<void> banUser(int userId, String banType, {String? banUntil, String? reason}) async {
     await _api.post('/auth/users/$userId/ban', body: {
       'banType': banType,
@@ -159,12 +191,12 @@ class AuthService {
     });
   }
 
-  // Разблокировать пользователя
+  
   Future<void> unbanUser(int userId) async {
     await _api.post('/auth/users/$userId/unban');
   }
 
-  // Удалить пользователя (только admin)
+  
   Future<void> deleteUser(int userId) async {
     await _api.delete('/auth/users/$userId');
   }

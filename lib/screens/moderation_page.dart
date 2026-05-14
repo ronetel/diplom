@@ -67,9 +67,9 @@ class _ModerationPageState extends State<ModerationPage>
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// ПОСТЫ
-// ═══════════════════════════════════════════════════════════════
+
+
+
 class _PostsTab extends StatefulWidget {
   final bool isAdmin;
   const _PostsTab({required this.isAdmin});
@@ -281,6 +281,7 @@ class _PostsTabState extends State<_PostsTab> {
               ],
             ),
             trailing: PopupMenuButton<String>(
+              tooltip: 'Действия',
               onSelected: (v) {
                 if (v == 'hide') _toggleHide(post);
                 if (v == 'edit') _editContent(post);
@@ -305,9 +306,9 @@ class _PostsTabState extends State<_PostsTab> {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// КОММЕНТАРИИ
-// ═══════════════════════════════════════════════════════════════
+
+
+
 class _CommentsTab extends StatefulWidget {
   final bool isAdmin;
   const _CommentsTab({required this.isAdmin});
@@ -494,6 +495,7 @@ class _CommentsTabState extends State<_CommentsTab> {
               ],
             ),
             trailing: PopupMenuButton<String>(
+              tooltip: 'Действия',
               onSelected: (v) {
                 if (v == 'hide') _toggleHide(c);
                 if (v == 'edit') _edit(c);
@@ -516,9 +518,9 @@ class _CommentsTabState extends State<_CommentsTab> {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// ПОЛЬЗОВАТЕЛИ
-// ═══════════════════════════════════════════════════════════════
+
+
+
 class _UsersTab extends StatefulWidget {
   final bool isAdmin;
   const _UsersTab({required this.isAdmin});
@@ -884,6 +886,7 @@ class _UsersTabState extends State<_UsersTab> {
             trailing: isCurrentAdmin
                 ? null
                 : PopupMenuButton<String>(
+                    tooltip: 'Действия',
                     onSelected: (v) {
                       if (v == 'ban') _showBanDialog(user);
                       if (v == 'unban') _unban(user);
@@ -916,9 +919,9 @@ class _UsersTabState extends State<_UsersTab> {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// ЛОГИ (только admin)
-// ═══════════════════════════════════════════════════════════════
+
+
+
 class _LogsTab extends StatefulWidget {
   const _LogsTab();
 
@@ -1151,9 +1154,9 @@ class _LogsTabState extends State<_LogsTab> {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Вспомогательные виджеты и функции
-// ═══════════════════════════════════════════════════════════════
+
+
+
 class _RoleBadge extends StatelessWidget {
   final String role;
   const _RoleBadge({required this.role});
@@ -1219,7 +1222,7 @@ Future<String?> _showReasonDialog(BuildContext context, String hint) async {
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('OK')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Применить')),
       ],
     ),
   );

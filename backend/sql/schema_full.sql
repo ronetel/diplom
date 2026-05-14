@@ -1,9 +1,4 @@
--- Полная схема базы данных для Wardrobe App
--- PostgreSQL
 
--- ============================================
--- USERS (Пользователи)
--- ============================================
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
@@ -22,9 +17,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 
--- ============================================
--- CLOTHES (Одежда)
--- ============================================
 CREATE TABLE IF NOT EXISTS clothes (
   id SERIAL PRIMARY KEY,
   owner_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -49,9 +41,7 @@ CREATE INDEX IF NOT EXISTS idx_clothes_owner ON clothes(owner_id);
 CREATE INDEX IF NOT EXISTS idx_clothes_type ON clothes(type);
 CREATE INDEX IF NOT EXISTS idx_clothes_event ON clothes(event);
 
--- ============================================
--- OUTFITS (Образы/Луки)
--- ============================================
+
 CREATE TABLE IF NOT EXISTS outfits (
   id SERIAL PRIMARY KEY,
   owner_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -69,9 +59,7 @@ CREATE TABLE IF NOT EXISTS outfits (
 
 CREATE INDEX IF NOT EXISTS idx_outfits_owner ON outfits(owner_id);
 
--- ============================================
--- OUTFIT_SCHEDULE (Расписание образов по датам)
--- ============================================
+
 CREATE TABLE IF NOT EXISTS outfit_schedule (
   id SERIAL PRIMARY KEY,
   outfit_id INTEGER REFERENCES outfits(id) ON DELETE CASCADE,
@@ -86,9 +74,7 @@ CREATE TABLE IF NOT EXISTS outfit_schedule (
 CREATE INDEX IF NOT EXISTS idx_schedule_date ON outfit_schedule(scheduled_date);
 CREATE INDEX IF NOT EXISTS idx_schedule_owner ON outfit_schedule(owner_id);
 
--- ============================================
--- POSTS (Посты в ленте)
--- ============================================
+
 CREATE TABLE IF NOT EXISTS posts (
   id SERIAL PRIMARY KEY,
   author_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -107,9 +93,7 @@ CREATE TABLE IF NOT EXISTS posts (
 CREATE INDEX IF NOT EXISTS idx_posts_author ON posts(author_id);
 CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC);
 
--- ============================================
--- LIKES (Лайки)
--- ============================================
+
 CREATE TABLE IF NOT EXISTS likes (
   id SERIAL PRIMARY KEY,
   post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
@@ -120,9 +104,7 @@ CREATE TABLE IF NOT EXISTS likes (
 
 CREATE INDEX IF NOT EXISTS idx_likes_post ON likes(post_id);
 
--- ============================================
--- COMMENTS (Комментарии)
--- ============================================
+
 CREATE TABLE IF NOT EXISTS comments (
   id SERIAL PRIMARY KEY,
   post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
@@ -135,9 +117,7 @@ CREATE TABLE IF NOT EXISTS comments (
 
 CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id);
 
--- ============================================
--- BANS (История блокировок)
--- ============================================
+
 CREATE TABLE IF NOT EXISTS bans (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -152,9 +132,7 @@ CREATE TABLE IF NOT EXISTS bans (
 
 CREATE INDEX IF NOT EXISTS idx_bans_user ON bans(user_id);
 
--- ============================================
--- USER_FOLLOWS (Подписки пользователей)
--- ============================================
+
 CREATE TABLE IF NOT EXISTS user_follows (
   id SERIAL PRIMARY KEY,
   follower_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -166,9 +144,7 @@ CREATE TABLE IF NOT EXISTS user_follows (
 CREATE INDEX IF NOT EXISTS idx_follows_follower ON user_follows(follower_id);
 CREATE INDEX IF NOT EXISTS idx_follows_following ON user_follows(following_id);
 
--- ============================================
--- WEATHER_CACHE (Кэш погоды)
--- ============================================
+
 CREATE TABLE IF NOT EXISTS weather_cache (
   id SERIAL PRIMARY KEY,
   lat DECIMAL(10, 8),
@@ -179,9 +155,6 @@ CREATE TABLE IF NOT EXISTS weather_cache (
 
 CREATE INDEX IF NOT EXISTS idx_weather_location ON weather_cache(lat, lng);
 
--- ============================================
--- Функция для обновления updated_at
--- ============================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN

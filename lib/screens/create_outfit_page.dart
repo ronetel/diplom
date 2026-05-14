@@ -45,7 +45,7 @@ class _CreateOutfitPageState extends State<CreateOutfitPage> {
       });
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = e.toString().replaceFirst('Exception: ', '');
         _isLoading = false;
       });
     }
@@ -156,7 +156,7 @@ class _CreateOutfitPageState extends State<CreateOutfitPage> {
                   : ListView(
                       padding: const EdgeInsets.all(16),
                       children: [
-                        // Name
+                        
                         TextField(
                           controller: _nameController,
                           decoration: const InputDecoration(
@@ -166,7 +166,7 @@ class _CreateOutfitPageState extends State<CreateOutfitPage> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Description
+                        
                         TextField(
                           controller: _descriptionController,
                           maxLines: 3,
@@ -177,7 +177,7 @@ class _CreateOutfitPageState extends State<CreateOutfitPage> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Event
+                        
                         const Text('Событие', style: TextStyle(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         Wrap(
@@ -196,7 +196,7 @@ class _CreateOutfitPageState extends State<CreateOutfitPage> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Season
+                        
                         DropdownButtonFormField<String>(
                           value: _selectedSeason,
                           decoration: const InputDecoration(
@@ -218,14 +218,14 @@ class _CreateOutfitPageState extends State<CreateOutfitPage> {
                         ),
                         const SizedBox(height: 24),
 
-                        // Selected count
+                        
                         Text(
                           'Выбрано вещей: ${_selectedClothes.length}',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 16),
 
-                        // Clothes grid
+                        
                         const Text(
                           'Выберите вещи для образа:',
                           style: TextStyle(fontWeight: FontWeight.bold),
@@ -274,7 +274,7 @@ class _CreateOutfitPageState extends State<CreateOutfitPage> {
                   : null,
             ),
           ),
-          // Selection indicator
+          
           if (isSelected)
             Container(
               decoration: BoxDecoration(
@@ -289,7 +289,7 @@ class _CreateOutfitPageState extends State<CreateOutfitPage> {
                 ),
               ),
             ),
-          // Type label
+          
           Positioned(
             bottom: 4,
             left: 4,

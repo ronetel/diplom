@@ -7,9 +7,9 @@ const { logAction } = require('../helpers/logger')
 const isMod = (role) => ['moderator', 'admin'].includes(role)
 const isAdmin = (role) => role === 'admin'
 
-// ──────────────────────────────────────────────────────────
-// ПОСТЫ — получить все для модерации
-// ──────────────────────────────────────────────────────────
+
+
+
 router.get('/posts', auth, async (req, res) => {
   if (!isMod(req.user.role)) return res.status(403).json({ message: 'Недостаточно прав' })
   try {
@@ -47,9 +47,9 @@ router.get('/posts', auth, async (req, res) => {
   }
 })
 
-// ──────────────────────────────────────────────────────────
-// ПОСТЫ — скрыть / показать
-// ──────────────────────────────────────────────────────────
+
+
+
 router.put('/posts/:id/hide', auth, async (req, res) => {
   if (!isMod(req.user.role)) return res.status(403).json({ message: 'Недостаточно прав' })
   try {
@@ -75,9 +75,9 @@ router.put('/posts/:id/hide', auth, async (req, res) => {
   }
 })
 
-// ──────────────────────────────────────────────────────────
-// ПОСТЫ — редактировать контент
-// ──────────────────────────────────────────────────────────
+
+
+
 router.put('/posts/:id/content', auth, async (req, res) => {
   if (!isMod(req.user.role)) return res.status(403).json({ message: 'Недостаточно прав' })
   try {
@@ -101,9 +101,9 @@ router.put('/posts/:id/content', auth, async (req, res) => {
   }
 })
 
-// ──────────────────────────────────────────────────────────
-// ПОСТЫ — удалить
-// ──────────────────────────────────────────────────────────
+
+
+
 router.delete('/posts/:id', auth, async (req, res) => {
   if (!isMod(req.user.role)) return res.status(403).json({ message: 'Недостаточно прав' })
   try {
@@ -125,9 +125,9 @@ router.delete('/posts/:id', auth, async (req, res) => {
   }
 })
 
-// ──────────────────────────────────────────────────────────
-// КОММЕНТАРИИ — получить все для модерации
-// ──────────────────────────────────────────────────────────
+
+
+
 router.get('/comments', auth, async (req, res) => {
   if (!isMod(req.user.role)) return res.status(403).json({ message: 'Недостаточно прав' })
   try {
@@ -160,9 +160,9 @@ router.get('/comments', auth, async (req, res) => {
   }
 })
 
-// ──────────────────────────────────────────────────────────
-// КОММЕНТАРИИ — скрыть / показать
-// ──────────────────────────────────────────────────────────
+
+
+
 router.put('/comments/:id/hide', auth, async (req, res) => {
   if (!isMod(req.user.role)) return res.status(403).json({ message: 'Недостаточно прав' })
   try {
@@ -186,9 +186,9 @@ router.put('/comments/:id/hide', auth, async (req, res) => {
   }
 })
 
-// ──────────────────────────────────────────────────────────
-// КОММЕНТАРИИ — редактировать
-// ──────────────────────────────────────────────────────────
+
+
+
 router.put('/comments/:id/content', auth, async (req, res) => {
   if (!isMod(req.user.role)) return res.status(403).json({ message: 'Недостаточно прав' })
   try {
@@ -212,9 +212,9 @@ router.put('/comments/:id/content', auth, async (req, res) => {
   }
 })
 
-// ──────────────────────────────────────────────────────────
-// КОММЕНТАРИИ — удалить
-// ──────────────────────────────────────────────────────────
+
+
+
 router.delete('/comments/:id', auth, async (req, res) => {
   if (!isMod(req.user.role)) return res.status(403).json({ message: 'Недостаточно прав' })
   try {
@@ -236,9 +236,9 @@ router.delete('/comments/:id', auth, async (req, res) => {
   }
 })
 
-// ──────────────────────────────────────────────────────────
-// ПОЛЬЗОВАТЕЛИ — получить список
-// ──────────────────────────────────────────────────────────
+
+
+
 router.get('/users', auth, async (req, res) => {
   if (!isMod(req.user.role)) return res.status(403).json({ message: 'Недостаточно прав' })
   try {
@@ -276,13 +276,13 @@ router.get('/users', auth, async (req, res) => {
   }
 })
 
-// ──────────────────────────────────────────────────────────
-// ПОЛЬЗОВАТЕЛИ — заблокировать
-// ──────────────────────────────────────────────────────────
+
+
+
 router.post('/users/:id/ban', auth, async (req, res) => {
   if (!isMod(req.user.role)) return res.status(403).json({ message: 'Недостаточно прав' })
   try {
-    const { banUntil, reason } = req.body  // banUntil: ISO string or null (permanent)
+    const { banUntil, reason } = req.body  
 
     if (!reason || !reason.trim()) {
       return res.status(400).json({ message: 'Укажите причину блокировки' })
@@ -320,9 +320,9 @@ router.post('/users/:id/ban', auth, async (req, res) => {
   }
 })
 
-// ──────────────────────────────────────────────────────────
-// ПОЛЬЗОВАТЕЛИ — разблокировать
-// ──────────────────────────────────────────────────────────
+
+
+
 router.post('/users/:id/unban', auth, async (req, res) => {
   if (!isMod(req.user.role)) return res.status(403).json({ message: 'Недостаточно прав' })
   try {
@@ -351,9 +351,9 @@ router.post('/users/:id/unban', auth, async (req, res) => {
   }
 })
 
-// ──────────────────────────────────────────────────────────
-// ADMIN: изменить роль пользователя
-// ──────────────────────────────────────────────────────────
+
+
+
 router.put('/users/:id/role', auth, async (req, res) => {
   if (!isAdmin(req.user.role)) return res.status(403).json({ message: 'Требуются права администратора' })
   try {
@@ -384,9 +384,9 @@ router.put('/users/:id/role', auth, async (req, res) => {
   }
 })
 
-// ──────────────────────────────────────────────────────────
-// ADMIN: удалить аккаунт
-// ──────────────────────────────────────────────────────────
+
+
+
 router.delete('/users/:id', auth, async (req, res) => {
   if (!isAdmin(req.user.role)) return res.status(403).json({ message: 'Требуются права администратора' })
   try {
@@ -411,9 +411,9 @@ router.delete('/users/:id', auth, async (req, res) => {
   }
 })
 
-// ──────────────────────────────────────────────────────────
-// ADMIN: журнал действий
-// ──────────────────────────────────────────────────────────
+
+
+
 router.get('/logs', auth, async (req, res) => {
   if (!isAdmin(req.user.role)) return res.status(403).json({ message: 'Требуются права администратора' })
   try {
@@ -444,7 +444,7 @@ router.get('/logs', auth, async (req, res) => {
       params
     )
 
-    // Получаем уникальные action-типы для фильтра
+    
     const actionsResult = await pool.query(`SELECT DISTINCT action FROM logs ORDER BY action`)
 
     res.json({

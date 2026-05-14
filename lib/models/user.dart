@@ -8,10 +8,13 @@ class User {
   final DateTime? banUntil;
   final String? banReason;
   final DateTime createdAt;
-  // Статистика
+  
   final int? clothesCount;
   final int? outfitsCount;
   final int? postsCount;
+  final int? followersCount;
+  final int? followingCount;
+  final bool isFollowing;
 
   User({
     required this.id,
@@ -26,6 +29,9 @@ class User {
     this.clothesCount,
     this.outfitsCount,
     this.postsCount,
+    this.followersCount,
+    this.followingCount,
+    this.isFollowing = false,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -44,6 +50,9 @@ class User {
       clothesCount: int.tryParse((json['clothes_count'] ?? json['clothesCount'] ?? 0).toString()),
       outfitsCount: int.tryParse((json['outfits_count'] ?? json['outfitsCount'] ?? 0).toString()),
       postsCount: int.tryParse((json['posts_count'] ?? json['postsCount'] ?? 0).toString()),
+      followersCount: int.tryParse((json['followers_count'] ?? json['followersCount'] ?? 0).toString()),
+      followingCount: int.tryParse((json['following_count'] ?? json['followingCount'] ?? 0).toString()),
+      isFollowing: json['is_following'] ?? json['isFollowing'] ?? false,
     );
   }
 
@@ -78,6 +87,9 @@ class User {
     int? clothesCount,
     int? outfitsCount,
     int? postsCount,
+    int? followersCount,
+    int? followingCount,
+    bool? isFollowing,
   }) {
     return User(
       id: id ?? this.id,
@@ -92,6 +104,9 @@ class User {
       clothesCount: clothesCount ?? this.clothesCount,
       outfitsCount: outfitsCount ?? this.outfitsCount,
       postsCount: postsCount ?? this.postsCount,
+      followersCount: followersCount ?? this.followersCount,
+      followingCount: followingCount ?? this.followingCount,
+      isFollowing: isFollowing ?? this.isFollowing,
     );
   }
 }

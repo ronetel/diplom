@@ -6,7 +6,7 @@ class Comment {
   final bool isHidden;
   final DateTime createdAt;
   final DateTime? updatedAt;
-  // Автор
+  
   final String? authorUsername;
   final String? authorAvatarUrl;
 

@@ -103,7 +103,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // Content
+                
                 TextField(
                   controller: _contentController,
                   maxLines: 5,
@@ -114,7 +114,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 ),
                 const SizedBox(height: 24),
 
-                // Select outfit
+                
                 const Text(
                   'Прикрепить образ:',
                   style: TextStyle(fontWeight: FontWeight.bold),

@@ -1,8 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../models/outfit.dart';
-import '../models/cloth.dart';
 import '../services/outfit_service.dart';
-import 'create_outfit_page.dart';
+import 'outfit_canvas_page.dart';
+import 'outfit_detail_page.dart';
 
 class OutfitsPage extends StatefulWidget {
   const OutfitsPage({super.key});
@@ -12,7 +13,7 @@ class OutfitsPage extends StatefulWidget {
 }
 
 class _OutfitsPageState extends State<OutfitsPage> {
-  final OutfitService _outfitService = OutfitService();
+  final OutfitService _service = OutfitService();
   List<Outfit> _outfits = [];
   bool _isLoading = true;
   String? _error;
@@ -28,60 +29,17 @@ class _OutfitsPageState extends State<OutfitsPage> {
       _isLoading = true;
       _error = null;
     });
-
     try {
-      final response = await _outfitService.getMyOutfits();
+      final r = await _service.getMyOutfits();
       setState(() {
-        _outfits = response.items;
+        _outfits = r.items;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = e.toString().replaceFirst('Exception: ', '');
         _isLoading = false;
       });
-    }
-  }
-
-  Future<void> _deleteOutfit(int id) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить образ?'),
-        content: const Text('Это действие нельзя отменить.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Удалить'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    try {
-      await _outfitService.deleteOutfit(id);
-      _loadOutfits();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Образ удален')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка: $e')),
-        );
-      }
     }
   }
 
@@ -93,12 +51,13 @@ class _OutfitsPageState extends State<OutfitsPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
+            tooltip: 'Создать образ',
             onPressed: () async {
-              await Navigator.push(
+              final created = await Navigator.push<bool>(
                 context,
-                MaterialPageRoute(builder: (_) => const CreateOutfitPage()),
+                MaterialPageRoute(builder: (_) => const OutfitCanvasPage()),
               );
-              _loadOutfits();
+              if (created == true) _loadOutfits();
             },
           ),
         ],
@@ -112,10 +71,7 @@ class _OutfitsPageState extends State<OutfitsPage> {
                     children: [
                       Text('Ошибка: $_error'),
                       const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadOutfits,
-                        child: const Text('Повторить'),
-                      ),
+                      ElevatedButton(onPressed: _loadOutfits, child: const Text('Повторить')),
                     ],
                   ),
                 )
@@ -124,140 +80,154 @@ class _OutfitsPageState extends State<OutfitsPage> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+                          Icon(Icons.checkroom_outlined, size: 72, color: Colors.grey[400]),
+                          const SizedBox(height: 16),
                           const Text(
-                            'У вас пока нет образов.\nСоздайте первый!',
+                            'Образов пока нет.\nСоздайте первый!',
                             textAlign: TextAlign.center,
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 20),
                           ElevatedButton.icon(
                             onPressed: () async {
-                              await Navigator.push(
+                              final created = await Navigator.push<bool>(
                                 context,
-                                MaterialPageRoute(
-                                  builder: (_) => const CreateOutfitPage(),
-                                ),
+                                MaterialPageRoute(builder: (_) => const OutfitCanvasPage()),
                               );
-                              _loadOutfits();
+                              if (created == true) _loadOutfits();
                             },
-                            icon: const Icon(Icons.add),
-                            label: const Text('Создать образ'),
+                            icon: const Icon(Icons.brush_outlined),
+                            label: const Text('Редактор образа'),
                           ),
                         ],
                       ),
                     )
                   : RefreshIndicator(
                       onRefresh: _loadOutfits,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
+                      child: GridView.builder(
+                        padding: const EdgeInsets.all(8),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.75,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                        ),
                         itemCount: _outfits.length,
-                        itemBuilder: (context, index) {
-                          final outfit = _outfits[index];
-                          return _buildOutfitCard(outfit);
-                        },
+                        itemBuilder: (ctx, i) => _buildCard(_outfits[i]),
                       ),
                     ),
     );
   }
 
-  Widget _buildOutfitCard(Outfit outfit) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Outfit info
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        outfit.displayName,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      if (outfit.description != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          outfit.description!,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ],
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Chip(
-                            label: Text(outfit.eventLabel),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          if (outfit.season != null) ...[
-                            const SizedBox(width: 8),
-                            Chip(
-                              label: Text(outfit.seasonLabel),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ],
-                        ],
-                      ),
+  Widget _buildCard(Outfit outfit) {
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => OutfitDetailPage(outfit: outfit)),
+        );
+        _loadOutfits();
+      },
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            
+            outfit.thumbnailUrl != null
+                ? CachedNetworkImage(
+                    imageUrl: outfit.thumbnailUrl!,
+                    fit: BoxFit.cover,
+                    placeholder: (c, u) => _placeholder(),
+                    errorWidget: (c, u, e) => _emptyCanvas(),
+                  )
+                : _emptyCanvas(),
+
+            
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.8),
+                      Colors.transparent,
                     ],
                   ),
                 ),
-                // Actions
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    if (value == 'delete') {
-                      _deleteOutfit(outfit.id);
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete, color: Colors.red),
-                          SizedBox(width: 8),
-                          Text('Удалить', style: TextStyle(color: Colors.red)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      outfit.displayName,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          outfit.eventLabel,
+                          style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontSize: 11),
+                        ),
+                        if (outfit.weatherLabel.isNotEmpty) ...[
+                          Text(' · ',
+                              style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.6),
+                                  fontSize: 11)),
+                          Text(
+                            outfit.weatherLabel,
+                            style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.85),
+                                fontSize: 11),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ],
-                      ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          // Clothes grid
-          if (outfit.clothes != null && outfit.clothes!.isNotEmpty)
-            SizedBox(
-              height: 120,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: outfit.clothes!.length,
-                itemBuilder: (context, index) {
-                  final cloth = outfit.clothes![index];
-                  return _buildClothPreview(cloth);
-                },
               ),
             ),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildClothPreview(Cloth cloth) {
-    return Container(
-      width: 100,
-      margin: const EdgeInsets.only(right: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        image: DecorationImage(
-          image: NetworkImage(cloth.imageUrl),
-          fit: BoxFit.cover,
+            
+            if (outfit.isFavorite)
+              const Positioned(
+                top: 6,
+                left: 6,
+                child: Icon(Icons.favorite, color: Colors.red, size: 22),
+              ),
+          ],
         ),
       ),
     );
   }
+
+  Widget _placeholder() => Container(
+        color: Colors.grey[100],
+        child: const Center(child: CircularProgressIndicator()),
+      );
+
+  Widget _emptyCanvas() => Container(
+        color: Colors.grey[100],
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.checkroom_outlined, size: 40, color: Colors.grey[400]),
+            const SizedBox(height: 6),
+            Text('Нет фото', style: TextStyle(color: Colors.grey[400], fontSize: 11)),
+          ],
+        ),
+      );
 }

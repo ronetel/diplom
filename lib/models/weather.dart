@@ -53,7 +53,7 @@ class Weather {
 
   String get feelsLikeFormatted => 'Ощущается как ${feelsLike.round()}°C';
 
-  // Определение сезона на основе температуры
+  
   String get season {
     if (temp < 5) return 'winter';
     if (temp < 15) return 'autumn';
@@ -76,7 +76,7 @@ class Weather {
     }
   }
 
-  // Рекомендации по одежде на основе погоды
+  
   List<String> get clothingSuggestions {
     final suggestions = <String>[];
 

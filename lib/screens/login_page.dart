@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'register_page.dart';
 import 'home_screen.dart';
+import 'forgot_password_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -56,7 +57,7 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Logo
+                  
                   Icon(
                     Icons.checkroom,
                     size: 80,
@@ -79,7 +80,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 32),
 
-                  // Error message
+                  
                   if (authProvider.error != null) ...[
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -96,14 +97,13 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 16),
                   ],
 
-                  // Email field
+                  
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
                     decoration: InputDecoration(
                       labelText: 'Email',
-                      hintText: 'your@email.com',
                       prefixIcon: const Icon(Icons.email_outlined),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -121,7 +121,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Password field
+                  
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
@@ -158,7 +158,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Login button
+                  
                   ElevatedButton(
                     onPressed: authProvider.isLoading ? null : _login,
                     style: ElevatedButton.styleFrom(
@@ -180,7 +180,16 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Register link
+                  
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const ForgotPasswordPage()),
+                      );
+                    },
+                    child: const Text('Забыли пароль?'),
+                  ),
                   TextButton(
                     onPressed: () {
                       Navigator.of(context).push(

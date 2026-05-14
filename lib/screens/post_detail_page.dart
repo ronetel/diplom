@@ -1,9 +1,14 @@
+import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../models/post.dart';
 import '../models/comment.dart';
+import '../models/outfit.dart';
 import '../services/post_service.dart';
+import '../services/outfit_service.dart';
+import '../services/api_service.dart';
 import '../providers/auth_provider.dart';
 
 class PostDetailPage extends StatefulWidget {
@@ -17,6 +22,8 @@ class PostDetailPage extends StatefulWidget {
 
 class _PostDetailPageState extends State<PostDetailPage> {
   final PostService _postService = PostService();
+  final OutfitService _outfitService = OutfitService();
+  final ApiService _apiService = ApiService();
   late Future<Post> _postFuture;
   late Future<List<Comment>> _commentsFuture;
   final TextEditingController _commentController = TextEditingController();
@@ -65,6 +72,212 @@ class _PostDetailPageState extends State<PostDetailPage> {
     }
   }
 
+  Future<void> _deletePost(Post post) async {
+    try {
+      await _postService.deletePost(post.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Пост удалён')),
+        );
+        Navigator.pop(context, true); 
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка удаления: $e')),
+        );
+      }
+    }
+  }
+
+  void _showEditPostDialog(Post post) {
+    final contentController = TextEditingController(text: post.content);
+    final tagsController = TextEditingController(
+      text: post.tags.map((t) => '#$t').join(' '),
+    );
+    final List<File> newImages = [];
+    List<String> existingImages = List.from(post.imageUrls);
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Редактировать пост'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: contentController,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    hintText: 'Текст поста...',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: tagsController,
+                  decoration: const InputDecoration(
+                    hintText: '#тег #стиль',
+                    labelText: 'Теги',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                if (existingImages.isNotEmpty || newImages.isNotEmpty) ...[
+                  const Text('Фото:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 80,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: existingImages.length + newImages.length,
+                      itemBuilder: (ctx, i) {
+                        final isExisting = i < existingImages.length;
+                        final image = isExisting
+                            ? existingImages[i]
+                            : newImages[i - existingImages.length];
+                        return Stack(
+                          children: [
+                            Container(
+                              width: 80,
+                              height: 80,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                image: DecorationImage(
+                                  image: isExisting
+                                      ? NetworkImage(image as String)
+                                      : FileImage(image as File)
+                                          as ImageProvider,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 0,
+                              right: 4,
+                              child: GestureDetector(
+                                onTap: () => setDialogState(() {
+                                  if (isExisting) {
+                                    existingImages.removeAt(i);
+                                  } else {
+                                    newImages.removeAt(i - existingImages.length);
+                                  }
+                                }),
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    color: Colors.black54,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.close,
+                                      size: 16, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final picker = ImagePicker();
+                    final picked = await picker.pickMultiImage(imageQuality: 85);
+                    if (picked.isNotEmpty) {
+                      setDialogState(() {
+                        newImages.addAll(picked.map((x) => File(x.path)));
+                      });
+                    }
+                  },
+                  icon: const Icon(Icons.photo_library),
+                  label: const Text('Добавить фото'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Отмена'),
+            ),
+            ElevatedButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      setDialogState(() => isSaving = true);
+                      try {
+                        
+                        final uploadedUrls = <String>[];
+                        for (final file in newImages) {
+                          final bytes = await file.readAsBytes();
+                          final result = await _apiService.uploadBytes(
+                            '/upload/uploadPostImage',
+                            bytes,
+                            'post_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                          );
+                          uploadedUrls.add(result['imageUrl'] as String);
+                        }
+
+                        final tags = tagsController.text
+                            .split(' ')
+                            .map((t) => t.replaceAll('#', '').trim())
+                            .where((t) => t.isNotEmpty)
+                            .toList();
+
+                        await _postService.updatePost(
+                          post.id,
+                          content: contentController.text.trim().isEmpty
+                              ? null
+                              : contentController.text.trim(),
+                          imageUrls: [...existingImages, ...uploadedUrls],
+                          tags: tags,
+                        );
+
+                        if (mounted) {
+                          Navigator.pop(context);
+                          _refreshPost();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Пост обновлён')),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Ошибка: $e')),
+                          );
+                        }
+                      } finally {
+                        if (mounted) setDialogState(() => isSaving = false);
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Сохранить'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _refreshPost() {
+    setState(() {
+      _postFuture = _postService.getPostById(widget.postId);
+    });
+  }
+
   @override
   void dispose() {
     _commentController.dispose();
@@ -103,6 +316,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
           }
 
           final post = snapshot.data!;
+          final currentUser = context.watch<AuthProvider>().currentUser;
+          final isOwnPost = currentUser?.id == post.authorId;
 
           return ListView(
             children: [
@@ -111,7 +326,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header
+                    
                     ListTile(
                       leading: CircleAvatar(
                         backgroundImage: post.authorAvatarUrl != null
@@ -126,14 +341,73 @@ class _PostDetailPageState extends State<PostDetailPage> {
                         _formatDate(post.createdAt),
                         style: TextStyle(color: Colors.grey[600], fontSize: 12),
                       ),
+                      trailing: isOwnPost
+                          ? PopupMenuButton<String>(
+                              tooltip: 'Действия',
+                              onSelected: (value) {
+                                if (value == 'edit') {
+                                  _showEditPostDialog(post);
+                                } else if (value == 'delete') {
+                                  showDialog(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('Удалить пост?'),
+                                      content: const Text(
+                                          'Это действие нельзя отменить.'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(ctx),
+                                          child: const Text('Отмена'),
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            Navigator.pop(ctx);
+                                            _deletePost(post);
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          child: const Text('Удалить'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+                              },
+                              itemBuilder: (_) => [
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.edit, size: 20),
+                                      SizedBox(width: 8),
+                                      Text('Редактировать'),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete, size: 20, color: Colors.red),
+                                      SizedBox(width: 8),
+                                      Text('Удалить',
+                                          style: TextStyle(color: Colors.red)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            )
+                          : null,
                     ),
-                    // Content
+                    
                     if (post.content != null && post.content!.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Text(post.content!),
                       ),
-                    // Images
+                    
                     if (post.imageUrls.isNotEmpty)
                       SizedBox(
                         height: 250,
@@ -161,7 +435,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                           },
                         ),
                       ),
-                    // Outfit preview
+                    
                     if (post.outfit != null)
                       Container(
                         margin: const EdgeInsets.symmetric(
@@ -211,7 +485,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                           ],
                         ),
                       ),
-                    // Actions
+                    
                     Row(
                       children: [
                         IconButton(
@@ -222,7 +496,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                             color: post.isLiked == true ? Colors.red : null,
                           ),
                           onPressed: () {
-                            // TODO: Toggle like
+                            
                           },
                         ),
                         Text('${post.likesCount}'),
@@ -234,7 +508,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                   ],
                 ),
               ),
-              // Comments section
+              
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
@@ -242,7 +516,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
-              // Comment input
+              
               if (currentUser != null)
                 Padding(
                   padding: const EdgeInsets.all(16),
@@ -288,7 +562,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                     ],
                   ),
                 ),
-              // Comments list
+              
               FutureBuilder<List<Comment>>(
                 future: _commentsFuture,
                 builder: (context, snapshot) {
