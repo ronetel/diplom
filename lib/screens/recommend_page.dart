@@ -285,23 +285,32 @@ class _RecommendPageState extends State<RecommendPage> {
 
   Widget _buildOutfitsSection() {
     if (_outfits.isEmpty) {
+      final hasUnanalyzed = _unanalyzedCount > 0;
       return Card(
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
             children: [
-              Icon(Icons.style_outlined, size: 64, color: Colors.grey[400]),
+              Icon(
+                hasUnanalyzed ? Icons.auto_awesome : Icons.style_outlined,
+                size: 64,
+                color: Colors.grey[400],
+              ),
               const SizedBox(height: 16),
               Text(
-                _weather != null
-                    ? 'Нет подходящих образов для текущей погоды'
-                    : 'Нет образов для отображения',
+                hasUnanalyzed
+                    ? 'Образы ещё не проанализированы ИИ'
+                    : _weather != null
+                        ? 'Нет подходящих образов для текущей погоды'
+                        : 'Нет образов для отображения',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[600]),
               ),
               const SizedBox(height: 8),
               Text(
-                'Создайте образы с фото, и ИИ подберёт подходящие по погоде',
+                hasUnanalyzed
+                    ? 'Нажмите "Анализировать" выше, чтобы ИИ подобрал образы по погоде'
+                    : 'Создайте образы с фото, и ИИ подберёт подходящие по погоде',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: Colors.grey[500]),
               ),
@@ -402,7 +411,7 @@ class _RecommendPageState extends State<RecommendPage> {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            tags!['ai_description'] as String,
+                            tags['ai_description'] as String,
                             style: TextStyle(
                                 fontSize: 12, color: Colors.grey[600]),
                             maxLines: 2,

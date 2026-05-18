@@ -5,9 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../models/post.dart';
 import '../models/comment.dart';
-import '../models/outfit.dart';
 import '../services/post_service.dart';
-import '../services/outfit_service.dart';
 import '../services/api_service.dart';
 import '../providers/auth_provider.dart';
 
@@ -22,7 +20,6 @@ class PostDetailPage extends StatefulWidget {
 
 class _PostDetailPageState extends State<PostDetailPage> {
   final PostService _postService = PostService();
-  final OutfitService _outfitService = OutfitService();
   final ApiService _apiService = ApiService();
   late Future<Post> _postFuture;
   late Future<List<Comment>> _commentsFuture;
@@ -40,18 +37,17 @@ class _PostDetailPageState extends State<PostDetailPage> {
     if (_commentController.text.trim().isEmpty) return;
 
     setState(() => _isAddingComment = true);
+    final messenger = ScaffoldMessenger.of(context);
     try {
       await _postService.addComment(widget.postId, _commentController.text);
+      if (!mounted) return;
       _commentController.clear();
       setState(() {
         _commentsFuture = _postService.getComments(widget.postId);
+        _postFuture = _postService.getPostById(widget.postId);
       });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
-      }
+      messenger.showSnackBar(SnackBar(content: Text('Ошибка: $e')));
     } finally {
       if (mounted) setState(() => _isAddingComment = false);
     }
@@ -62,6 +58,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
       await _postService.deleteComment(widget.postId, commentId);
       setState(() {
         _commentsFuture = _postService.getComments(widget.postId);
+        _postFuture = _postService.getPostById(widget.postId);
       });
     } catch (e) {
       if (mounted) {
@@ -212,9 +209,10 @@ class _PostDetailPageState extends State<PostDetailPage> {
               onPressed: isSaving
                   ? null
                   : () async {
+                      final navigator = Navigator.of(context);
+                      final messenger = ScaffoldMessenger.of(context);
                       setDialogState(() => isSaving = true);
                       try {
-                        
                         final uploadedUrls = <String>[];
                         for (final file in newImages) {
                           final bytes = await file.readAsBytes();
@@ -241,19 +239,15 @@ class _PostDetailPageState extends State<PostDetailPage> {
                           tags: tags,
                         );
 
-                        if (mounted) {
-                          Navigator.pop(context);
-                          _refreshPost();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Пост обновлён')),
-                          );
-                        }
+                        navigator.pop();
+                        _refreshPost();
+                        messenger.showSnackBar(
+                          const SnackBar(content: Text('Пост обновлён')),
+                        );
                       } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Ошибка: $e')),
-                          );
-                        }
+                        messenger.showSnackBar(
+                          SnackBar(content: Text('Ошибка: $e')),
+                        );
                       } finally {
                         if (mounted) setDialogState(() => isSaving = false);
                       }
@@ -286,8 +280,6 @@ class _PostDetailPageState extends State<PostDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = context.watch<AuthProvider>().currentUser;
-
     return Scaffold(
       appBar: AppBar(title: const Text('Пост')),
       body: FutureBuilder<Post>(
@@ -474,7 +466,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.circular(4),
                                         image: DecorationImage(
-                                          image: NetworkImage(cloth.imageUrl),
+                                          image: NetworkImage(cloth.displayImageUrl),
                                           fit: BoxFit.cover,
                                         ),
                                       ),
@@ -495,8 +487,24 @@ class _PostDetailPageState extends State<PostDetailPage> {
                                 : Icons.favorite_border,
                             color: post.isLiked == true ? Colors.red : null,
                           ),
-                          onPressed: () {
-                            
+                          onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            try {
+                              if (post.isLiked == true) {
+                                await _postService.unlikePost(post.id);
+                              } else {
+                                await _postService.likePost(post.id);
+                              }
+                              if (mounted) {
+                                setState(() {
+                                  _postFuture = _postService.getPostById(widget.postId);
+                                });
+                              }
+                            } catch (e) {
+                              messenger.showSnackBar(
+                                SnackBar(content: Text('Ошибка: $e')),
+                              );
+                            }
                           },
                         ),
                         Text('${post.likesCount}'),

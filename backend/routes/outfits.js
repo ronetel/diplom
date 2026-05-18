@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const auth = require('../middleware/auth_mw')
+const validateId = require('../middleware/validate_id')
 const pool = require('../db')
 const { analyzeOutfitImage } = require('../services/gemini_service')
 
@@ -21,7 +22,9 @@ async function triggerAnalysis(outfitId, thumbnailUrl, meta = {}) {
 
 router.get('/', auth, async (req, res) => {
   try {
-    const { event, season, is_favorite, page = 1, limit = 20 } = req.query
+    const { event, season, is_favorite } = req.query
+    const page = Math.max(parseInt(req.query.page) || 1, 1)
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100)
     const userId = req.user.id
     const offset = (page - 1) * limit
 
@@ -88,7 +91,7 @@ router.get('/', auth, async (req, res) => {
 
 
 
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id', auth, validateId, async (req, res) => {
   try {
     const outfitId = req.params.id
     const userId = req.user.id
@@ -185,7 +188,7 @@ router.post('/', auth, async (req, res) => {
 
 
 
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', auth, validateId, async (req, res) => {
   try {
     const outfitId = req.params.id
     const userId = req.user.id
@@ -340,7 +343,7 @@ router.post('/:id/analyze', auth, async (req, res) => {
 
 
 
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', auth, validateId, async (req, res) => {
   try {
     const outfitId = req.params.id
     const userId = req.user.id

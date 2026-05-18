@@ -1,14 +1,66 @@
 const express = require('express')
 const cors = require('cors')
+const helmet = require('helmet')
+const rateLimit = require('express-rate-limit')
 const dotenv = require('dotenv')
 const { Pool } = require('pg')
 
 dotenv.config()
 
 const app = express()
-app.use(cors())
-app.use(express.json({ limit: '50mb' }))
-app.use(express.urlencoded({ extended: true, limit: '50mb' }))
+
+// Render и другие облачные платформы работают за прокси
+app.set('trust proxy', 1)
+
+// Security headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}))
+
+// CORS — разрешаем только мобильный клиент и localhost для разработки
+app.use(cors({
+  origin: (origin, callback) => {
+    const allowed = [
+      'http://localhost:8000',
+      'http://localhost:3000',
+      'https://back-200y.onrender.com',
+    ]
+    // Мобильное приложение не имеет origin (null) — разрешаем
+    if (!origin || allowed.includes(origin)) {
+      callback(null, true)
+    } else {
+      callback(new Error('Not allowed by CORS'))
+    }
+  },
+  credentials: true,
+}))
+
+// Rate limiting — глобально: 200 запросов / 15 мин с одного IP
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Слишком много запросов, подождите немного' },
+})
+
+// Строгий лимит для auth эндпоинтов: 10 попыток / 15 мин
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Слишком много попыток, попробуйте через 15 минут' },
+})
+
+app.use(globalLimiter)
+app.use('/auth/login', authLimiter)
+app.use('/auth/register', authLimiter)
+app.use('/auth/forgot-password', authLimiter)
+
+app.use(express.json({ limit: '25mb' }))
+app.use(express.urlencoded({ extended: true, limit: '25mb' }))
 
 const port = process.env.PORT || 8000
 
@@ -24,6 +76,7 @@ app.get('/', (req, res) => res.json({
   service: 'Wardrobe API',
   version: '1.0.0'
 }))
+
 
 
 const authRouter = require('./routes/auth')
@@ -74,15 +127,20 @@ async function runMigrations() {
   }
 }
 
-app.listen(port, async () => {
-  console.log(`Wardrobe backend listening on port ${port}`)
-  console.log(`Database URL: ${process.env.DATABASE_URL ? 'configured' : 'NOT SET'}`)
-  console.log(`Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME ? 'configured' : 'NOT SET'}`)
-  console.log(`OpenWeather API: ${process.env.OPENWEATHER_API_KEY ? 'configured' : 'NOT SET'}`)
-  console.log(`Gemini API: ${process.env.GEMINI_API_KEY ? 'configured' : 'NOT SET'}`)
-  console.log(`Groq API: ${process.env.GROQ_API_KEY ? 'configured' : 'NOT SET (rule-based fallback will be used)'}`)
-  await runMigrations()
-})
+if (process.env.NODE_ENV !== 'production' || process.env.RENDER) {
+  app.listen(port, async () => {
+    console.log(`Wardrobe backend listening on port ${port}`)
+    console.log(`Database URL: ${process.env.DATABASE_URL ? 'configured' : 'NOT SET'}`)
+    console.log(`Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME ? 'configured' : 'NOT SET'}`)
+    console.log(`OpenWeather API: ${process.env.OPENWEATHER_API_KEY ? 'configured' : 'NOT SET'}`)
+    console.log(`Gemini API: ${process.env.GEMINI_API_KEY ? 'configured' : 'NOT SET'}`)
+    console.log(`Groq API: ${process.env.GROQ_API_KEY ? 'configured' : 'NOT SET (rule-based fallback will be used)'}`)
+    console.log(`SMTP: ${process.env.SMTP_USER ? `configured (${process.env.SMTP_USER})` : 'NOT SET — emails will not be sent!'}`)
+    await runMigrations()
+  })
+}
+
+module.exports = app
 
 
 process.on('SIGTERM', () => {

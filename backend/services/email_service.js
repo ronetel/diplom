@@ -3,8 +3,9 @@ require('dotenv').config()
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '465'),
-  secure: process.env.SMTP_SECURE !== 'false', // true для 465, false для 587
+  port: Number(process.env.SMTP_PORT) || 587,
+  secure: process.env.SMTP_SECURE === 'true',
+  family: 4,
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -15,12 +16,20 @@ function generateCode() {
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
 
-async function sendVerificationEmail(email, code) {
+async function sendMail(to, subject, html) {
   await transporter.sendMail({
-    from: `"Wardrobe" <${process.env.SMTP_USER}>`,
-    to: email,
-    subject: 'Подтверждение регистрации — Wardrobe',
-    html: `
+    from: `Wardrobe <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    html,
+  })
+}
+
+async function sendVerificationEmail(email, code) {
+  await sendMail(
+    email,
+    'Подтверждение регистрации — Wardrobe',
+    `
       <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#f9f9f9;border-radius:12px">
         <h2 style="color:#333;margin-bottom:8px">Добро пожаловать в Wardrobe!</h2>
         <p style="color:#555;margin-bottom:24px">Для завершения регистрации введите код подтверждения:</p>
@@ -29,16 +38,15 @@ async function sendVerificationEmail(email, code) {
         </div>
         <p style="color:#999;font-size:13px">Код действителен 15 минут. Если вы не регистрировались — просто проигнорируйте это письмо.</p>
       </div>
-    `,
-  })
+    `
+  )
 }
 
 async function sendPasswordResetEmail(email, code) {
-  await transporter.sendMail({
-    from: `"Wardrobe" <${process.env.SMTP_USER}>`,
-    to: email,
-    subject: 'Сброс пароля — Wardrobe',
-    html: `
+  await sendMail(
+    email,
+    'Сброс пароля — Wardrobe',
+    `
       <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#f9f9f9;border-radius:12px">
         <h2 style="color:#333;margin-bottom:8px">Сброс пароля</h2>
         <p style="color:#555;margin-bottom:24px">Введите этот код для сброса пароля:</p>
@@ -47,8 +55,8 @@ async function sendPasswordResetEmail(email, code) {
         </div>
         <p style="color:#999;font-size:13px">Код действителен 15 минут. Если вы не запрашивали сброс пароля — просто проигнорируйте это письмо.</p>
       </div>
-    `,
-  })
+    `
+  )
 }
 
 module.exports = { generateCode, sendVerificationEmail, sendPasswordResetEmail }

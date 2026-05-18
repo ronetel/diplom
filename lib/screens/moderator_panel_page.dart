@@ -160,7 +160,7 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: isSelected ? Theme.of(context).colorScheme.primary.withOpacity(0.1) : null,
+          color: isSelected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1) : null,
           border: Border(
             bottom: BorderSide(
               color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
@@ -207,7 +207,7 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
           final post = _posts[index];
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
-            color: post.isHidden ? Colors.red.withOpacity(0.08) : null,
+            color: post.isHidden ? Colors.red.withValues(alpha: 0.08) : null,
             child: ListTile(
               leading: CircleAvatar(
                 backgroundImage: post.authorAvatarUrl != null
@@ -285,7 +285,7 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
           final user = _users[index];
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
-            color: user.isBanned ? Colors.red.withOpacity(0.08) : null,
+            color: user.isBanned ? Colors.red.withValues(alpha: 0.08) : null,
             child: ListTile(
               leading: CircleAvatar(
                 backgroundColor: _roleColor(user.role),

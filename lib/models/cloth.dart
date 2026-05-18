@@ -139,6 +139,8 @@ class Cloth {
     return index >= 0 ? typeLabels[index] : type;
   }
 
+  String get displayImageUrl => processedImageUrl ?? imageUrl;
+
   String get eventLabel {
     final index = events.indexOf(event);
     return index >= 0 ? eventLabels[index] : event;

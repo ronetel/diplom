@@ -556,10 +556,13 @@ class _UserProfilePageState extends State<UserProfilePage> {
         : post.outfit?.thumbnailUrl;
 
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => PostDetailPage(postId: post.id)),
-      ),
+      onTap: () async {
+        final deleted = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(builder: (_) => PostDetailPage(postId: post.id)),
+        );
+        if (deleted == true && mounted) _load();
+      },
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         child: Column(
