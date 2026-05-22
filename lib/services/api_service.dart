@@ -14,8 +14,9 @@ class AppException implements Exception {
 }
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:8000';
+  static const String baseUrl = 'https://back-200y.onrender.com';
   static const Duration _timeout = Duration(seconds: 15);
+  static const Duration _uploadTimeout = Duration(seconds: 120);
   static String? _token;
 
   static String? get token => _token;
@@ -112,7 +113,7 @@ class ApiService {
         filename: filename,
         contentType: MediaType('image', 'jpeg'),
       ));
-      final streamed = await request.send().timeout(_timeout);
+      final streamed = await request.send().timeout(_uploadTimeout);
       final response = await http.Response.fromStream(streamed);
       return _handleResponse(response);
     });

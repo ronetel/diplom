@@ -17,6 +17,7 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }))
 
+<<<<<<< HEAD
 // CORS — мобильное приложение и все localhost (Flutter web dev server)
 app.use(cors({
   origin: (origin, callback) => {
@@ -27,6 +28,22 @@ app.use(cors({
       return callback(null, true)
     }
     callback(new Error('Not allowed by CORS'))
+=======
+// CORS — разрешаем только мобильный клиент и localhost для разработки
+app.use(cors({
+  origin: (origin, callback) => {
+    const allowed = [
+      'http://localhost:8000',
+      'http://localhost:3000',
+      'https://back-200y.onrender.com',
+    ]
+    // Мобильное приложение не имеет origin (null) — разрешаем
+    if (!origin || allowed.includes(origin)) {
+      callback(null, true)
+    } else {
+      callback(new Error('Not allowed by CORS'))
+    }
+>>>>>>> 4e435c03a8eef66ce35406a77b9a24551cca8762
   },
   credentials: true,
 }))
@@ -54,6 +71,11 @@ app.use(globalLimiter)
 app.use('/auth/login', authLimiter)
 app.use('/auth/register', authLimiter)
 app.use('/auth/forgot-password', authLimiter)
+<<<<<<< HEAD
+=======
+app.use('/auth/reset-password', authLimiter)
+app.use('/auth/verify-email', authLimiter)
+>>>>>>> 4e435c03a8eef66ce35406a77b9a24551cca8762
 
 app.use(express.json({ limit: '25mb' }))
 app.use(express.urlencoded({ extended: true, limit: '25mb' }))
