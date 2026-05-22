@@ -14,7 +14,7 @@ class AppException implements Exception {
 }
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:8000';
+  static const String baseUrl = 'https://back-200y.onrender.com';
   static const Duration _timeout = Duration(seconds: 15);
   static const Duration _uploadTimeout = Duration(seconds: 120);
   static String? _token;

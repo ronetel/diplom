@@ -58,6 +58,8 @@ app.use(globalLimiter)
 app.use('/auth/login', authLimiter)
 app.use('/auth/register', authLimiter)
 app.use('/auth/forgot-password', authLimiter)
+app.use('/auth/reset-password', authLimiter)
+app.use('/auth/verify-email', authLimiter)
 
 app.use(express.json({ limit: '25mb' }))
 app.use(express.urlencoded({ extended: true, limit: '25mb' }))
