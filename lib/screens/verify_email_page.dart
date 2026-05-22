@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -23,9 +24,11 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
   bool _resending = false;
   String? _error;
   int _resendCooldown = 0;
+  Timer? _cooldownTimer;
 
   @override
   void dispose() {
+    _cooldownTimer?.cancel();
     for (final c in _controllers) {
       c.dispose();
     }
@@ -69,10 +72,11 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
       _resending = true;
       _error = null;
     });
+    final messenger = ScaffoldMessenger.of(context);
     try {
       await _authService.resendVerification(widget.email);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(content: Text('Код отправлен повторно')),
       );
       setState(() => _resendCooldown = 60);
@@ -87,10 +91,11 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
   }
 
   void _startCooldown() {
-    Future.delayed(const Duration(seconds: 1), () {
-      if (!mounted) return;
+    _cooldownTimer?.cancel();
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) { timer.cancel(); return; }
       setState(() => _resendCooldown--);
-      if (_resendCooldown > 0) _startCooldown();
+      if (_resendCooldown <= 0) timer.cancel();
     });
   }
 

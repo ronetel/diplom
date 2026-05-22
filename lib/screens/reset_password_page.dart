@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
@@ -26,9 +27,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   String? _error;
   int _resendCooldown = 0;
   bool _resending = false;
+  Timer? _cooldownTimer;
 
   @override
   void dispose() {
+    _cooldownTimer?.cancel();
     for (final c in _codeControllers) { c.dispose(); }
     for (final f in _focusNodes) { f.dispose(); }
     _passwordController.dispose();
@@ -73,10 +76,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       _resending = true;
       _error = null;
     });
+    final messenger = ScaffoldMessenger.of(context);
     try {
       await _authService.forgotPassword(widget.email);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(content: Text('Код отправлен повторно')),
       );
       setState(() => _resendCooldown = 60);
@@ -91,10 +95,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   }
 
   void _startCooldown() {
-    Future.delayed(const Duration(seconds: 1), () {
-      if (!mounted) return;
+    _cooldownTimer?.cancel();
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) { timer.cancel(); return; }
       setState(() => _resendCooldown--);
-      if (_resendCooldown > 0) _startCooldown();
+      if (_resendCooldown <= 0) timer.cancel();
     });
   }
 

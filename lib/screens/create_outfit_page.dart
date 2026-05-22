@@ -263,7 +263,7 @@ class _CreateOutfitPageState extends State<CreateOutfitPage> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               image: DecorationImage(
-                image: NetworkImage(cloth.imageUrl),
+                image: NetworkImage(cloth.displayImageUrl),
                 fit: BoxFit.cover,
               ),
               border: isSelected
@@ -278,7 +278,7 @@ class _CreateOutfitPageState extends State<CreateOutfitPage> {
           if (isSelected)
             Container(
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Center(
@@ -297,7 +297,7 @@ class _CreateOutfitPageState extends State<CreateOutfitPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
+                color: Colors.black.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(

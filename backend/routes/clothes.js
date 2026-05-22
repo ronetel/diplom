@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const auth = require('../middleware/auth_mw')
+const validateId = require('../middleware/validate_id')
 const pool = require('../db')
 
 
@@ -8,7 +9,9 @@ const pool = require('../db')
 
 router.get('/', async (req, res) => {
   try {
-    const { type, event, color, material, season, owner_id, page = 1, limit = 50 } = req.query
+    const { type, event, color, material, season, owner_id } = req.query
+    const page = Math.max(parseInt(req.query.page) || 1, 1)
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 200)
     const offset = (page - 1) * limit
 
     let whereClause = ''
@@ -76,7 +79,7 @@ router.get('/', async (req, res) => {
 
 
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', validateId, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT c.*, u.username as owner_username
@@ -101,7 +104,9 @@ router.get('/:id', async (req, res) => {
 
 router.get('/user/me', auth, async (req, res) => {
   try {
-    const { type, event, color, material, season, is_favorite, page = 1, limit = 50 } = req.query
+    const { type, event, color, material, season, is_favorite } = req.query
+    const page = Math.max(parseInt(req.query.page) || 1, 1)
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 200)
     const userId = req.user.id
     const offset = (page - 1) * limit
 
@@ -167,7 +172,8 @@ router.get('/user/me', auth, async (req, res) => {
 router.get('/type/:type/event/:event', async (req, res) => {
   try {
     const { type, event } = req.params
-    const { page = 1, limit = 50 } = req.query
+    const page = Math.max(parseInt(req.query.page) || 1, 1)
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 200)
     const offset = (page - 1) * limit
 
     let query = 'SELECT * FROM clothes WHERE 1=1'
@@ -237,7 +243,7 @@ router.post('/', auth, async (req, res) => {
 
 
 
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', auth, validateId, async (req, res) => {
   try {
     const clothId = req.params.id
     const userId = req.user.id
@@ -324,7 +330,7 @@ router.put('/:id', auth, async (req, res) => {
 
 
 
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', auth, validateId, async (req, res) => {
   try {
     const clothId = req.params.id
     const userId = req.user.id

@@ -97,18 +97,37 @@ class _FeedPageState extends State<FeedPage>
   }
 
   Future<void> _toggleLike(Post post, bool isFollowingTab) async {
+    // Оптимистичное обновление — меняем счётчик сразу без перезагрузки ленты
+    final newIsLiked = post.isLiked != true;
+    final delta = newIsLiked ? 1 : -1;
+    setState(() {
+      final list = isFollowingTab ? _followingPosts : _allPosts;
+      final idx = list.indexWhere((p) => p.id == post.id);
+      if (idx != -1) {
+        list[idx] = list[idx].copyWith(
+          isLiked: newIsLiked,
+          likesCount: (list[idx].likesCount) + delta,
+        );
+      }
+    });
     try {
       if (post.isLiked == true) {
         await _postService.unlikePost(post.id);
       } else {
         await _postService.likePost(post.id);
       }
-      if (isFollowingTab) {
-        _loadFollowing();
-      } else {
-        _loadAll();
-      }
     } catch (e) {
+      // Откатываем при ошибке
+      setState(() {
+        final list = isFollowingTab ? _followingPosts : _allPosts;
+        final idx = list.indexWhere((p) => p.id == post.id);
+        if (idx != -1) {
+          list[idx] = list[idx].copyWith(
+            isLiked: post.isLiked,
+            likesCount: post.likesCount,
+          );
+        }
+      });
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Ошибка: $e')));
@@ -472,7 +491,7 @@ class _FeedPageState extends State<FeedPage>
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(8),
                         image: DecorationImage(
-                          image: NetworkImage(cloth.imageUrl),
+                          image: NetworkImage(cloth.displayImageUrl),
                           fit: BoxFit.cover,
                         ),
                       ),
